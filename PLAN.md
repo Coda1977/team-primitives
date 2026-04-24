@@ -213,10 +213,12 @@ C:\Users\yonat\OneDrive\AI\Apps\Team Primitives\
 sessions                      { code, functionName, teamSize?, industry?, adminKey, createdAt,
                                 status: "open"|"closed",
                                 votingStatus: "idle"|"open"|"closed_with_results",
-                                votesPerParticipant: number?,
-                                origin: "user"|"simulation" }
-                              indexes by_code, by_created_at (for super-admin list sort),
-                                      by_origin (for super-admin filter)
+                                votesPerParticipant: number? }
+                              indexes by_code, by_created_at (for owner dashboard sort)
+                              (NOTE: simulation runs use a SEPARATE Convex deployment
+                               (team-primitives-staging), so no `origin` tag needed to
+                               distinguish sim from real data — it's enforced by
+                               deployment boundary.)
 
 participants                  { sessionId, name, slug, phase: "intake"|"canvas"|"locked",
                                 canvasGeneratedAt?, starsLockedAt?, createdAt }
@@ -443,7 +445,7 @@ These come from the original app's hard-learned lessons — do NOT regress:
 
 ## Build sequence (MVP-first)
 
-**Total realistic estimate: 6–7 days** for solo build including simulation harness and super-admin dashboard. Breakdown: Phases A–E (core app) = 4–5 days; Phase F (simulator) = ~1 day; Phase G (super-admin dashboard) = ~1 day. Original "half day" estimates per phase were optimistic — they don't account for Anthropic prompt tuning, real-world multi-tab testing, or edge-case polish.
+**Total realistic estimate: ~6 days** for solo build including simulation harness and owner dashboard. Breakdown: Phases A–E (core app) = 4–5 days; Phase F (simulator) = ~1 day; Phase G (owner dashboard) = ~4 hours (slimmed per operating model — see Phase G section). Original "half day" estimates per phase were optimistic — they don't account for Anthropic prompt tuning, real-world multi-tab testing, or edge-case polish.
 
 **Phase A — scaffold (~1 day):**
 1. `npm create vite@latest` → copy original's package.json deps + add `convex`, `react-router-dom@7`
@@ -487,24 +489,30 @@ These come from the original app's hard-learned lessons — do NOT regress:
 31. Write new CLAUDE.md for the repo
 
 **Phase F — Workshop Simulation harness (~1 day):**
-32. Set up a second Convex deployment for staging (`npx convex dev --configure team-primitives-staging`). Simulator targets staging; prod is never polluted by test data.
-33. Add `sessions.origin: "user" | "simulation"` field to schema; default `"user"` on live app, `"simulation"` when script creates sessions (via a `create-for-simulation` mutation gated by an env-var key).
-34. Build `scripts/simulate-workshop.mjs` — orchestrator. See file structure + behavior below.
-35. Build `scripts/personas/*.json` — 10 function briefs (HR, Product Marketing, Sales, Finance, Engineering, Legal, Customer Success, Ops, Marketing, People Ops), each with 5–8 persona archetypes (sub-role + voice sample).
-36. Build `scripts/lib/persona-llm.mjs` — wraps Anthropic SDK; given a function brief + persona archetype, generates persona-appropriate intake answers and chat messages. This is the "second LLM" that roleplays each participant.
-37. Build `scripts/lib/convex-client.mjs` — thin wrapper around Convex SDK for all mutations/actions needed by the simulator.
-38. Build `scripts/lib/playwright-spotcheck.mjs` (optional, uses Playwright MCP if available) — drives ONE real browser through the participant flow in parallel with the Node script, catches UI race conditions the API-level simulator can't see.
-39. Report writer: creates `reports/YYYY-MM-DD-<run-id>/index.md` + per-session `data.json` + both `.docx` exports + `run-summary.md` (timing, token usage, errors).
-40. Add npm scripts: `simulate:single` (1 session × 6 personas, ~$2, ~2 min), `simulate` (3 × 5, ~$8, ~5 min), `simulate:full` (10 × 6, ~$20, ~10–15 min).
+32. Set up a second Convex deployment for staging (`npx convex dev --configure team-primitives-staging`). Simulator targets staging; prod is never polluted by test data. Deployment boundary is the only separator — no `origin` tag on sessions.
+33. Build `scripts/simulate-workshop.mjs` — orchestrator. See file structure + behavior below.
+34. Build `scripts/personas/*.json` — 10 function briefs (HR, Product Marketing, Sales, Finance, Engineering, Legal, Customer Success, Ops, Marketing, People Ops), each with 5–8 persona archetypes (sub-role + voice sample).
+35. Build `scripts/lib/persona-llm.mjs` — wraps Anthropic SDK; given a function brief + persona archetype, generates persona-appropriate intake answers and chat messages. This is the "second LLM" that roleplays each participant.
+36. Build `scripts/lib/convex-client.mjs` — thin wrapper around Convex SDK for all mutations/actions needed by the simulator.
+37. Build `scripts/lib/playwright-spotcheck.mjs` (optional, uses Playwright MCP if available) — drives ONE real browser through the participant flow in parallel with the Node script, catches UI race conditions the API-level simulator can't see.
+38. Report writer: creates `reports/YYYY-MM-DD-<run-id>/index.md` + per-session `data.json` + both `.docx` exports + `run-summary.md` (timing, token usage, errors).
+39. Add npm scripts: `simulate:single` (1 session × 6 personas, ~$2, ~2 min), `simulate` (3 × 5, ~$8, ~5 min), `simulate:full` (10 × 6, ~$20, ~10–15 min).
 
-**Phase G — Super-admin dashboard (~1 day):**
-41. Add `SUPER_ADMIN_KEY` env var to Convex (via `npx convex env set`). Generate a 32-char random secret. Never exposed to client.
-42. Add Convex queries gated by this key: `listAllSessions`, `getSessionSummary(sessionId, superKey)`, `getAdminKeyForSession(sessionId, superKey)` (returns per-session admin key for deep-link), `getSessionExportBundle(sessionId, superKey)`.
-43. New route `/owner?k=:superKey` → `OwnerDashboard.jsx`. Validates key via `getSessionForOwner` query; invalid → redirect `/`.
-44. Table UI: sortable columns — function, created, origin (user/simulation), participants, ideas total, stars total, synthesis status, voting status, top-voted idea preview (truncated). Row click → new tab to that session's admin URL (super-admin query returns the embedded `adminKey`).
-45. Filters: hide simulation runs (toggle), date range, origin, function.
-46. Bulk export: "Download selected as ZIP" — Convex action fetches each session's data, generates both `.docx` files per session, zips, returns a download URL. Uses `jszip` (new dep).
-47. Known limitation to document: super-admin can see all sessions including participant names + content. Acceptable for Yonatan-as-owner model; would need consent flow if productized.
+**Phase G — Owner dashboard (~4 hours, slimmed):**
+
+Operating model: the user (tool owner) creates sessions and hands admin URLs to group leads who run the workshops. Once handed off, the user needs a way to see what happened across all sessions without asking for each admin URL back. This is a simple "my sessions" index — NOT a new permission level.
+
+40. Add `OWNER_KEY` env var to Convex (`npx convex env set OWNER_KEY <32-char-random>`). Never exposed to client.
+41. Add Convex queries/action in `convex/ownerQueries.ts` (all gated by `ownerKey` argument compared to env):
+    - `listAllSessions(ownerKey)` → rows of `{ sessionId, code, functionName, createdAt, participantCount, ideaCount, starCount, votingStatus, topVotedIdea: { text, voteCount }?, adminUrl }`
+    - `downloadSessionDocx(sessionId, ownerKey)` → returns top-ideas.docx bytes
+    - `downloadAllDocxZip(ownerKey)` → Convex action: fetches all sessions, generates docx per session, zips with `jszip`, returns download URL
+42. New route `/owner?k=:ownerKey` → `OwnerDashboard.jsx`. On mount, calls `listAllSessions(k)`; invalid key → redirect `/`.
+43. Single sortable table — columns: Function | Created | Participants | Ideas | Votes | Top voted idea | Actions. Sort click on any column header. No filter toggles, no date pickers. Default sort: createdAt desc.
+44. Actions column per row: `[Open admin]` (new tab, deep-link to that session's admin URL using the embedded adminKey) | `[Download]` (fetches that session's top-ideas.docx).
+45. Top of table: `[Export all as ZIP]` button — calls `downloadAllDocxZip`. For <100 sessions, sync response is fine; larger scale → defer to an email later (not MVP).
+46. Bookmark prompt on first load: "Bookmark this URL — it's the only way back to your sessions." Auto-copy to clipboard on first load.
+47. Known limitation to document: owner can read all session data. Acceptable for single-tenant Yonatan-as-owner model; would need consent flow if productized.
 
 ---
 
@@ -551,29 +559,29 @@ reports/                               # gitignored; per-run outputs
 
 ---
 
-## Super-admin dashboard — sketch
+## Owner dashboard — sketch
 
-Route: `/owner?k=:superKey`
+Route: `/owner?k=:ownerKey`. Staging and prod run on separate Convex deployments, so sim data is physically separated from real workshops (no filter needed).
 
-Table columns (all sortable):
+Single sortable table:
 ```
-| Function         | Created       | Origin | Parts | Ideas | Stars | Synth? | Voting | Top Idea (8 votes)                  | Actions           |
-|------------------|---------------|--------|-------|-------|-------|--------|--------|-------------------------------------|-------------------|
-| HR               | 2026-04-24    | sim    |   6   |  47   |  32   |  ✓     | closed | Draft rejection emails from ATS...  | [Open] [Export]   |
-| Product Marketing| 2026-04-24    | user   |   5   |  38   |  28   |  ✓     | open   | Auto-generate campaign one-pagers...| [Open] [Export]   |
+| Function         | Created       | Parts | Ideas | Votes | Top voted idea                      | Actions              |
+|------------------|---------------|-------|-------|-------|-------------------------------------|----------------------|
+| HR               | 2026-04-24    |   6   |  47   |  12   | Draft rejection emails from ATS...  | [Open] [Download]    |
+| Product Marketing| 2026-04-22    |   5   |  38   |  15   | Auto-generate campaign one-pagers...| [Open] [Download]    |
 ```
 
-Filters above table: [ ] Hide simulations | [ ] Last 30 days | Function: [any ▾] | Status: [any ▾]
+Above the table: `[Export all as ZIP]` button (downloads docx per session as a single zip).
 
-Below table: `[Export all visible as ZIP]` button.
+Row "[Open]" → new tab to `/s/:code/admin?k=<that session's adminKey>` (owner query embeds it). Same per-session admin board as today; admin duties (synthesize/open voting/close voting) still live there. Owner dashboard is a read-through index, not a new admin UI.
 
-Row click "[Open]" → new tab to `/s/:code/admin?k=<that session's adminKey>` (super-admin query returns it). Same per-session admin board as today, no changes.
+Row "[Download]" → downloads that session's `top-ideas.docx` directly.
 
-"[Export]" in the row → downloads that session's `top-ideas.docx` directly.
+Sessions accumulate forever in MVP. If you ever hit hundreds of sessions, add an "Archive" action that hides rows from the default view (not required at MVP scale).
 
-"Export all visible as ZIP" → Convex action assembles a ZIP of docx files, returns a signed URL; browser downloads.
-
-Sessions accumulate forever in MVP. If you ever get to hundreds of sessions, add a "Archive" toggle that sets `status: "archived"` and hides from default view.
+**Security notes:**
+- `OWNER_KEY` lives in Convex env, never sent to client. Client passes the URL-param key to every ownerQueries call; the Convex function does the compare. If the key is wrong, the query returns null and the route redirects.
+- Per-session admin keys embedded in the dashboard's deep-links are fine to show to the owner — they're just navigation aids. The owner already has authority to see these via their OWNER_KEY.
 
 ---
 
@@ -636,15 +644,15 @@ Four browser windows (use incognito to simulate different users):
 16. Cross-deployment check: simulated sessions land in `team-primitives-staging` deployment; prod deployment stays empty of `origin: "simulation"` rows.
 17. Re-run same simulation twice; diff the outputs. Expect: some variation in LLM outputs but overall themes consistent. If outputs differ dramatically run-to-run, that's a prompt-determinism red flag to address.
 
-### Phase G verification (super-admin dashboard)
-18. Open `/owner?k=<SUPER_ADMIN_KEY>` — table shows all sessions from Phase F simulation run + any real sessions created via Phase B-E testing.
-19. Invalid superKey (`/owner?k=wrong`) → redirect home. No data leaked to client.
-20. Click "Open" on a simulated HR session → new tab opens the admin board for that session (super-admin query returned the embedded adminKey).
-21. Sort table by vote count descending — top-voted ideas surface across all sessions.
-22. Filter to hide simulations → only `origin: "user"` sessions visible.
-23. Click "Export" on one row → downloads that session's `top-ideas.docx`.
-24. Select 3 rows → "Export selected as ZIP" → downloads a ZIP with 3 session folders, each with its 2 `.docx` files.
-25. Verify `SUPER_ADMIN_KEY` is never visible in client bundle (`grep` the Vite output after `npm run build` — should be 0 hits on the actual secret value).
+### Phase G verification (owner dashboard)
+18. Open `/owner?k=<OWNER_KEY>` on the prod deployment — table shows real sessions created during Phase B-E testing (sim data lives on staging deployment, physically separated).
+19. Invalid key (`/owner?k=wrong`) → redirect home. No data leaked to client.
+20. Click "Open admin" on a session row → new tab opens that session's admin board (owner query returned the embedded adminKey).
+21. Sort table by Votes descending — top-voted ideas surface across all sessions.
+22. Click "Download" on one row → downloads that session's `top-ideas.docx`.
+23. Click "Export all as ZIP" → downloads a ZIP containing one `.docx` per session.
+24. Verify `OWNER_KEY` is never visible in client bundle (`grep` the Vite build output — 0 hits on the actual secret value).
+25. Bookmark prompt appears on first load; URL auto-copied to clipboard.
 
 ---
 
