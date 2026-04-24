@@ -42,13 +42,28 @@ Each teammate answers these three about the **function**, not their personal rol
 - Participant can **export their personal board** as .docx at any time after locking
 - Participant can **return to their personal board anytime** (read-only — no further edits)
 - Once admin runs team synthesis, participant gets access to the **team board** too (toggle between "My board" and "Team board")
+- Once admin opens voting, participant gets a **voting view** to cast their votes on the starred ideas
 
 ### Admin experience
 - Admin URL shows: live roster (who joined, who locked stars, idea/star counts), raw list of starred cards with attribution, shareable participant URL
 - Admin clicks **Synthesize** to run the clustering LLM pass across all starred cards from all participants
-- Admin sees synthesized clusters (title, summary, category badge, vote count, voter names) + raw breakdown drill-down
+- Admin sees synthesized clusters (title, summary, category badge, **source count** = how many participants' stars fed this cluster, attribution names) + raw breakdown drill-down
 - Admin can re-synthesize as more stars come in (latest run wins)
-- Admin exports synthesized board to Word/PDF (reuses original's `docx` utility)
+- Admin configures **votes-per-participant** (e.g., 3, 5, 7 — admin choice per session), then clicks **Open voting**
+- Admin watches live vote tallies, closes voting when ready
+- Admin exports two artifacts:
+  - **Top Ideas (ranked list)** — Word/PDF with ideas ordered by team votes; primary post-vote deliverable
+  - **Full board** — optional secondary export with synthesized clusters + raw breakdown per participant
+
+### Team voting phase (new)
+After synthesis, admin opens a voting round. Key rules:
+- **Unit of voting = individual idea**, not cluster. Clusters are a visual organizing tool only. If two similar ideas sit in one cluster, voters pick the specific idea with the wording they prefer.
+- **One vote maximum per idea per person.** No stacking multiple dots on a single idea.
+- **Vote budget is admin-configurable per session** (default 3; admin can pick any positive integer when opening voting). Participants can distribute their N votes across any N distinct ideas.
+- Participants can change their votes while voting is open; votes lock when admin closes the round.
+- **Vote counts hidden from participants while voting is open** (reduces bandwagon bias); admin sees live tallies.
+- When admin closes voting → final ranked list is revealed to all participants on the team board.
+- **Final output:** ideas sorted by vote count, with cluster badge as metadata. Participant attribution retained. This is what goes into the "Top Ideas" export.
 
 ### Identity & permissions
 - **Admin** = possession of the `adminKey` query param in URL. Every admin mutation validates it.
@@ -86,6 +101,7 @@ C:\Users\yonat\OneDrive\AI\Apps\Team Primitives\
 │   ├── intake.ts                                   [NEW] submitIntake, getMyIntake
 │   ├── canvas.ts                                   [NEW] ideas CRUD, toggleStar, finalizeStars, chat messages
 │   ├── synthesis.ts                                [NEW] getLatestSynthesis, listRawStarred
+│   ├── votes.ts                                    [NEW] openVoting, closeVoting, castVote, removeVote, listVoteTallies, listMyVotes
 │   ├── ai/
 │   │   ├── generateCanvas.ts                       [NEW action] adapted from api/primitives-generate.js
 │   │   ├── chatRefine.ts                           [NEW action] adapted from api/chat.js (primitives branch only)
@@ -107,7 +123,9 @@ C:\Users\yonat\OneDrive\AI\Apps\Team Primitives\
 │   │   ├── views/
 │   │   │   ├── IntakeView.jsx                      [ADAPT] 3 questions instead of 7
 │   │   │   ├── CanvasView.jsx                      [ADAPT from PrimitivesView.jsx]
-│   │   │   └── MyBoardView.jsx                     [NEW] read-only personal board after lock; toggles to team board once available
+│   │   │   ├── MyBoardView.jsx                     [NEW] read-only personal board after lock; toggles to team board / vote view / ranked list based on session phase
+│   │   │   ├── VoteView.jsx                        [NEW] participant voting UI — starred ideas grouped visually by cluster; one-vote-per-idea; budget counter
+│   │   │   └── RankedIdeasView.jsx                 [NEW] shared post-voting display — ideas sorted by vote count with cluster badges; used on both participant + admin views
 │   │   ├── primitives/
 │   │   │   ├── CategorySection.jsx                 [COPY] works unchanged via dispatch adapter
 │   │   │   ├── IdeaCard.jsx                        [COPY]
@@ -125,6 +143,7 @@ C:\Users\yonat\OneDrive\AI\Apps\Team Primitives\
 │   │       ├── RawStarredList.jsx                  [NEW]
 │   │       ├── SynthesizeButton.jsx                [NEW]
 │   │       ├── ClusterCard.jsx                     [NEW]
+│   │       ├── VotingControlsPanel.jsx             [NEW] admin-only — votesPerParticipant input, Open/Close voting buttons, live tally view
 │   │       └── ShareLinkPanel.jsx                  [NEW]
 │   ├── config/
 │   │   ├── categories.js                           [COPY] unchanged 6 primitives
@@ -136,7 +155,7 @@ C:\Users\yonat\OneDrive\AI\Apps\Team Primitives\
 │   │   ├── useParticipant.js                       [NEW] resolves participant via localStorage map
 │   │   └── useCanvasDispatch.js                    [NEW] dispatch-shaped adapter → Convex mutations
 │   └── utils/
-│       ├── export.js                               [ADAPT] add exportParticipantDocx + exportSynthesisDocx
+│       ├── export.js                               [ADAPT] add exportParticipantDocx + exportSynthesisDocx + exportTopIdeasDocx (ranked list is the primary post-vote artifact)
 │       ├── localParticipant.js                     [NEW] localStorage helpers for {sessionCode: participantId}
 │       └── sessionCode.js                          [NEW]
 └── (no api/ directory — all server logic in Convex)
@@ -151,7 +170,8 @@ C:\Users\yonat\OneDrive\AI\Apps\Team Primitives\
 ## Convex schema (high-level)
 
 ```
-sessions                      { code, functionName, teamSize?, industry?, adminKey, status, createdAt }
+sessions                      { code, functionName, teamSize?, industry?, adminKey, status, createdAt,
+                                votingStatus: "closed"|"open"|"completed", votesPerParticipant: number? }
                               index by_code
 
 participants                  { sessionId, name, slug, phase: "intake"|"canvas"|"locked",
@@ -168,14 +188,25 @@ chatMessages                  { sessionId, participantId, categoryId, role, cont
                               index by_participant_category
 
 synthesis                     { sessionId, status, ranAt, error?, clusters: [{ id, title, summary,
-                                categoryId, memberIdeaIds, participantIds, voteCount }] }
+                                categoryId, memberIdeaIds, participantIds, sourceCount }] }
                               index by_session_ran
+                              (NOTE: `sourceCount` replaces earlier `voteCount` naming —
+                               it represents how many participants' starred ideas fed this cluster;
+                               it is NOT the team-vote count. See `votes` table for true votes.)
+
+votes                         { sessionId, participantId, ideaId, createdAt }
+                              indexes by_session, by_participant, by_idea
+                              uniqueness: (participantId, ideaId) — enforced in mutation
+                              NEW table. One row per vote. Max 1 per (participant, idea) pair.
+                              Participant's vote budget = sessions.votesPerParticipant.
 ```
 
 Key design choices:
 - **`ideas` is flat (one row per card)**, not nested under participant — enables the cross-participant `by_session_starred` index the synthesis action needs.
 - **Admin = adminKey, participant = participantId.** No accounts.
 - **Latest synthesis wins** — admin can re-run, cluster view always shows the most recent.
+- **Voting is on ideas, not clusters.** Clusters are purely a display/organizing construct; the `votes` table references `ideaId` directly. Ranking output sorts ideas by vote count globally; cluster membership is shown as a badge/context, not as the grouping.
+- **Vote budget is session-scoped** (admin sets `votesPerParticipant` when opening the voting round). Mutation validates `countOfVotesByParticipant(sessionId, participantId) < votesPerParticipant` before inserting.
 
 ---
 
@@ -200,7 +231,10 @@ Detailed prompts live in the Plan agent's blueprint (above in conversation). Key
 /s/:code/p/:slug                    → Participant shell
     phase "intake"                    → IntakeView
     phase "canvas"                    → CanvasView (editable)
-    phase "locked"                    → MyBoardView (read-only; toggle to team board when synthesis ready)
+    phase "locked"                    → MyBoardView (read-only)
+                                        — if synthesis ready: toggle to team board
+                                        — if voting open: toggle to voting view
+                                        — if voting completed: toggle to final ranked list
 /*                                  → NotFound
 ```
 
@@ -229,15 +263,25 @@ Detailed prompts live in the Plan agent's blueprint (above in conversation). Key
 14. `AdminBoard.jsx` shell with `ShareLinkPanel`, `RosterPanel`, `RawStarredList`, `SynthesizeButton`
 15. `listParticipants` and `listRawStarred` queries
 16. `synthesize.ts` action + prompt — THIS IS THE ITERATION-HEAVY STEP; expect prompt tweaks
-17. `ClusterCard.jsx` renders clusters with title/summary/category badge/vote count/voter names
+17. `ClusterCard.jsx` renders clusters with title/summary/category badge/source count/attribution
 18. Wire participant `MyBoardView` to show team board toggle when `latestSynthesis.status === "ready"`
 
-**Phase D — polish:**
-19. Admin Word/PDF export (`exportSynthesisDocx`)
-20. Empty states (admin board before anyone joins, "no stars yet" for synthesize button disabled, etc.)
-21. Admin "Close session" toggle
-22. "Not you? Reset" link on participant to clear localStorage entry
-23. Write new CLAUDE.md for the repo
+**Phase D — voting round (half day):**
+19. Admin controls: `votesPerParticipant` input (number, default 3) + `openVoting` / `closeVoting` mutations
+20. `VoteView.jsx` (participant) — shows all starred ideas grouped visually by cluster (cluster title as section header, ideas as voteable cards underneath); vote budget counter at top; one-vote-per-idea checkbox/toggle
+21. `castVote` / `removeVote` mutations with server-side budget check (count < votesPerParticipant) and uniqueness check (no duplicate vote on same idea by same participant)
+22. Live admin view while voting open: tally per idea (admin-only visibility); participant view shows "voting in progress — results hidden until closed"
+23. On `closeVoting`: reveal ranked list to all participants; ideas sorted by vote count; cluster badge as metadata on each idea
+24. `RankedIdeasView.jsx` — shared display component used by admin AND locked participants post-vote
+
+**Phase E — export + polish:**
+25. `exportTopIdeasDocx` — primary deliverable; ranked ideas list with vote count + attribution + cluster badge
+26. `exportSynthesisDocx` — secondary/full-board export (clusters + raw breakdown per participant); keep as optional download
+27. `exportParticipantDocx` — personal board export (already built in Phase B step 13)
+28. Empty states (admin board before anyone joins, "no stars yet" synthesize disabled, "no votes yet" ranking hidden, etc.)
+29. Admin "Close session" toggle
+30. "Not you? Reset" link on participant to clear localStorage entry
+31. Write new CLAUDE.md for the repo
 
 ---
 
@@ -267,6 +311,10 @@ Detailed prompts live in the Plan agent's blueprint (above in conversation). Key
 - **Admin can kick participant:** not in MVP
 - **Min stars is strict (5).** Server-side validated; button disabled client-side.
 - **Participants see team board:** yes, toggle between "My board" and "Team board" once admin has run synthesis at least once
+- **Voting phase:** default ON; admin can skip by not clicking "Open voting" (session ends at synthesized board if skipped)
+- **Default votes per participant:** 3 (admin can override when opening the vote round)
+- **Vote unit = individual idea** (not cluster). One vote max per idea per participant. No stacking.
+- **Vote visibility:** hidden from participants while open; revealed once admin closes voting
 
 ---
 
@@ -281,11 +329,14 @@ Four browser windows (use incognito to simulate different users):
 3. **Participant "Jordan":** star 6 cards, edit one, delete one, add manual card, open Task Automation chat, send a refinement message, click "Add" on one suggested idea, verify card appears. Counter updates live in admin roster.
 4. **Participants "Priya" and "Alex":** repeat step 2–3 with different answers. Star 5 and 8 cards respectively.
 5. All three participants click "Submit stars" → `MyBoardView` renders read-only. Each can download personal .docx. Roster shows all three as locked.
-6. **Admin:** click Synthesize → 6–15s indicator → cluster view shows ~8–15 clusters, each with title/summary/category/vote count/voter names. Spot-check 3 clusters for semantic quality: do similar ideas from different people actually merge? Do distinct ones stay separate?
-7. **Admin:** click Export → downloads .docx with Synthesized Themes + Raw Breakdown by Participant.
-8. **Participants:** refresh their tabs → toggle between "My board" and "Team board" → see synthesized clusters.
-9. **Resilience:** refresh participant mid-canvas (state persists), open participant URL in second tab (stays in sync on stars), re-synthesize (overwrites latest).
-10. **Edge cases:** two joiners named "Jordan" (second becomes `jordan-2`), try to star 11 cards (rejected), try to finalize with 4 stars (button disabled + server rejects), admin URL without `k=` (redirect home), synthesize with 0 locked (button disabled).
+6. **Admin:** click Synthesize → 6–15s indicator → cluster view shows ~8–15 clusters, each with title/summary/category/source count/attribution. Spot-check 3 clusters for semantic quality: do similar ideas from different people actually merge? Do distinct ones stay separate?
+7. **Participants:** refresh their tabs → toggle to "Team board" → see synthesized clusters (with source-count badges, NOT vote counts).
+8. **Admin:** set `votesPerParticipant = 3`, click Open voting. Participants see vote view; admin tally panel shows zeros.
+9. **All three participants cast votes.** Jordan puts 3 votes on 3 different ideas. Priya puts 2 on ideas in cluster X, 1 on a standalone idea. Alex tries to vote twice on the same idea (should be rejected; vote count stays at 1). Alex tries to cast a 4th vote (budget exhausted; rejected). All three stop with their budgets exhausted. Admin tally updates live.
+10. **Admin:** click Close voting. Ranked list reveals on participant board AND admin board — ideas ordered by vote count, cluster badge as metadata on each.
+11. **Admin:** click Export → choose "Top Ideas (ranked list)" → downloads .docx with just the ranked ideas (position, text, vote count, contributor name, cluster badge). Optionally downloads "Full board" for the detailed breakdown.
+12. **Resilience:** refresh participant mid-canvas (state persists), open participant URL in second tab (stays in sync on stars AND votes), re-synthesize mid-voting (clusters update but votes on existing ideas persist because votes reference `ideaId`).
+13. **Edge cases:** two joiners named "Jordan" (second becomes `jordan-2`), try to star 11 cards (rejected), try to finalize with 4 stars (button disabled + server rejects), admin URL without `k=` (redirect home), synthesize with 0 locked (button disabled), try to open voting before synthesis (button disabled), try to vote when voting closed (mutation rejects), re-open voting after closing (allowed — resets `votingStatus` to "open"; existing votes preserved; admin can change `votesPerParticipant` but must handle case where existing votes exceed new budget — MVP: reject reducing below current max).
 
 ---
 
@@ -296,9 +347,13 @@ Highest-leverage files to build carefully; the rest cascades from these:
 - `C:\Users\yonat\OneDrive\AI\Apps\Team Primitives\convex\schema.ts`
 - `C:\Users\yonat\OneDrive\AI\Apps\Team Primitives\convex\ai\synthesize.ts` (prompt is the #1 product risk)
 - `C:\Users\yonat\OneDrive\AI\Apps\Team Primitives\convex\ai\generateCanvas.ts`
+- `C:\Users\yonat\OneDrive\AI\Apps\Team Primitives\convex\votes.ts` (NEW — cast/remove vote mutations with budget + uniqueness checks)
 - `C:\Users\yonat\OneDrive\AI\Apps\Team Primitives\src\hooks\useCanvasDispatch.js` (key to reusing PrimitivesView components unchanged)
 - `C:\Users\yonat\OneDrive\AI\Apps\Team Primitives\src\routes\AdminBoard.jsx`
 - `C:\Users\yonat\OneDrive\AI\Apps\Team Primitives\src\components\views\MyBoardView.jsx`
+- `C:\Users\yonat\OneDrive\AI\Apps\Team Primitives\src\components\views\VoteView.jsx` (NEW — participant voting UI)
+- `C:\Users\yonat\OneDrive\AI\Apps\Team Primitives\src\components\views\RankedIdeasView.jsx` (NEW — shared post-voting display)
+- `C:\Users\yonat\OneDrive\AI\Apps\Team Primitives\src\utils\export.js` (adapt: add `exportTopIdeasDocx` as primary post-vote artifact)
 
 ---
 
