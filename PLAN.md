@@ -67,8 +67,32 @@ After synthesis, admin opens a voting round. Key rules:
 
 ### Identity & permissions
 - **Admin** = possession of the `adminKey` query param in URL. Every admin mutation validates it.
-- **Participant** = possession of `participantId` stored in localStorage keyed by session code. Every participant mutation validates it.
+- **Participant** = possession of `participantId` stored in localStorage keyed by session code + participantId (key: `aihuddle:${sessionCode}:participantId` → `participantId`). Every participant mutation validates it. Two tabs from the same browser = same participant (they share localStorage).
 - **Duplicate names** within a session get `-2`, `-3` slug suffixes.
+- **Admin URL loss has no recovery path in MVP.** Admin key only lives in URL. Surface a prominent "Bookmark this URL — it's the only way back" banner + auto-copy to clipboard on session create.
+
+### Session state machine
+Two orthogonal status fields on `sessions`:
+
+**`sessions.status`:** `"open" | "closed"`
+- `"open"` (default on create) — participants can join; all read/write allowed per phase rules
+- `"closed"` — new joins blocked; existing participants retain read access to their board; admin can still read synthesis/votes but cannot re-synthesize or re-open voting
+- Transition: admin-only (`closeSession` mutation). No reopening in MVP.
+
+**`sessions.votingStatus`:** `"idle" | "open" | "closed_with_results"`
+- `"idle"` (default on create) — no voting round; voting controls disabled; team board (if synthesis ran) shows source counts only, no vote counts
+- `"open"` — voting round active; participants can cast/remove votes; admin sees live tallies; participants see "voting in progress — results hidden"
+- `"closed_with_results"` — voting closed; ranked list revealed to all; votes frozen; admin can re-open (transitions back to `"open"`, preserving votes)
+- Transitions: `openVoting` (admin, requires synthesis complete, sets status → `"open"`); `closeVoting` (admin, status → `"closed_with_results"`); re-opening allowed but the new `votesPerParticipant` must be ≥ the current max-cast-by-any-participant (mutation rejects otherwise)
+
+### Late-joiner policy
+**"Allowed in, fully."** Anyone with the participant URL can join at any time while `sessions.status === "open"`, regardless of `votingStatus` or whether synthesis has run. Late joiners go through the full flow:
+- Intake → generate canvas → refine → star 5–10 → lock stars
+- If synthesis has already run: admin can re-synthesize at any point to incorporate the late joiner's stars
+- If voting is already `"open"` when they lock stars: they can cast votes immediately
+- If voting closed before they finish: they see the final ranked list read-only (acceptable MVP behavior)
+
+No join-time gates based on session state. `joinSession` mutation only checks `sessions.status === "open"`.
 
 ---
 
@@ -161,7 +185,9 @@ C:\Users\yonat\OneDrive\AI\Apps\Team Primitives\
 └── (no api/ directory — all server logic in Convex)
 ```
 
-**Dropped from original:** `src/components/views/PlaybookView.jsx`, `src/components/views/CommitmentView.jsx`, `src/components/playbook/*`, `src/config/rules.js`, `api/playbook-generate.js`, playbook branch of `api/chat.js`, `src/context/AppContext.jsx` (replaced by Convex), `src/utils/storage.js` (replaced), `src/utils/api.js` (replaced).
+**Dropped from original:** `src/components/views/PlaybookView.jsx`, `src/components/views/CommitmentView.jsx`, `src/components/playbook/*`, `src/components/shared/PhaseProgress.jsx` (no 4-phase linear flow in team app), `src/config/rules.js`, `api/playbook-generate.js`, playbook branch of `api/chat.js`, `src/context/AppContext.jsx` (replaced by Convex), `src/utils/storage.js` (replaced), `src/utils/api.js` (replaced).
+
+**Note on `PaperGrain.jsx`:** original CLAUDE.md says "Paper grain disabled." File is copied as an inert artifact (CSS may reference the class); safe to delete entirely once verified nothing imports it.
 
 **Reuse estimate:** ~70% of UI code is copy or near-copy; 100% of CSS / design system; prompts keep structural skeleton with functional-level copy changes.
 
@@ -170,8 +196,10 @@ C:\Users\yonat\OneDrive\AI\Apps\Team Primitives\
 ## Convex schema (high-level)
 
 ```
-sessions                      { code, functionName, teamSize?, industry?, adminKey, status, createdAt,
-                                votingStatus: "closed"|"open"|"completed", votesPerParticipant: number? }
+sessions                      { code, functionName, teamSize?, industry?, adminKey, createdAt,
+                                status: "open"|"closed",
+                                votingStatus: "idle"|"open"|"closed_with_results",
+                                votesPerParticipant: number? }
                               index by_code
 
 participants                  { sessionId, name, slug, phase: "intake"|"canvas"|"locked",
@@ -186,12 +214,17 @@ ideas                         { sessionId, participantId, categoryId, text, star
 
 chatMessages                  { sessionId, participantId, categoryId, role, content, ideas?, createdAt }
                               index by_participant_category
+                              (NOTE: `ideas` shape when present: Array<{ text: string,
+                               categoryId: string, added: boolean }>. `added` defaults false;
+                               flipped to true by `markChatIdeaAdded` mutation when user
+                               clicks "Add" in the chat drawer.)
 
 synthesis                     { sessionId, status, ranAt, error?, clusters: [{ id, title, summary,
-                                categoryId, memberIdeaIds, participantIds, sourceCount }] }
+                                categoryId, memberIdeaIds, participantIds }] }
                               index by_session_ran
-                              (NOTE: `sourceCount` replaces earlier `voteCount` naming —
-                               it represents how many participants' starred ideas fed this cluster;
+                              (NOTE: source count is computed from `participantIds.length`
+                               at read time — NOT stored, to prevent drift. It represents
+                               how many distinct participants' starred ideas fed this cluster;
                                it is NOT the team-vote count. See `votes` table for true votes.)
 
 votes                         { sessionId, participantId, ideaId, createdAt }
@@ -208,17 +241,168 @@ Key design choices:
 - **Voting is on ideas, not clusters.** Clusters are purely a display/organizing construct; the `votes` table references `ideaId` directly. Ranking output sorts ideas by vote count globally; cluster membership is shown as a badge/context, not as the grouping.
 - **Vote budget is session-scoped** (admin sets `votesPerParticipant` when opening the voting round). Mutation validates `countOfVotesByParticipant(sessionId, participantId) < votesPerParticipant` before inserting.
 
+### Ordering & tie-breaks (explicit rules)
+- **Vote view, ideas within a cluster:** alphabetical by `text` (ascending). Stable, avoids primacy bias in how ideas are presented to voters.
+- **Vote view, cluster order:** same order synthesis returned (LLM is instructed to sort by source count descending).
+- **Ranked list, tie-breaks:** primary sort by vote count descending; ties broken by `ideas.createdAt` ascending (first-voted-for tie wins). This rewards early contribution and is stable across re-renders.
+- **Orphan ideas (voted for but no cluster after re-synthesis):** show in ranked list with `[Uncategorized]` badge rather than dropping.
+
+### Error handling UX (all three LLM actions)
+All three Convex actions (`generateCanvas`, `chatRefine`, `synthesize`) can fail due to Anthropic 5xx, timeout, or JSON-parse errors. MVP policy:
+- **`generateCanvas` failure:** participant sees a full-screen error card with the error message + "Try again" button. No partial state — action is retried atomically; on retry, it deletes any partial ideas first (shouldn't exist but defensive).
+- **`chatRefine` failure:** inline error toast in the chat drawer; user's message stays in the input so they can retry. Don't persist assistant turn. No exponential backoff.
+- **`synthesize` failure:** `synthesis` row saved with `status: "error"` + error text. Admin board shows "Synthesis failed: ${message} — [Retry]" panel. No partial clusters persisted.
+
+No silent fallbacks. Every failure surfaces to the right user with a retry path.
+
 ---
 
-## LLM prompts (key points)
+## LLM Prompts (full text)
 
-Detailed prompts live in the Plan agent's blueprint (above in conversation). Key specs:
+Three prompts, all via Anthropic `claude-sonnet-4-5-20250929`. Full text below — copy these verbatim as the starting point; iterate on the synthesis prompt against real session data (see Risks §1).
 
-1. **Canvas generation** (`convex/ai/generateCanvas.ts`) — mirrors `api/primitives-generate.js`. Inputs: function name + industry + team size + 3 intake answers. Output JSON: `{content, automation, research, data, coding, ideation}` arrays. `max_tokens: 2048`. Adds strict "functional level, not personal role" framing and "never invent experiences/metrics/outcomes" guardrail.
+### 1. Canvas generation — `convex/ai/generateCanvas.ts`
 
-2. **Chat refinement** (`convex/ai/chatRefine.ts`) — mirrors `api/chat.js` primitives branch. Keeps the `---IDEAS---` separator parsing at `api/chat.js:159-167`. `max_tokens: 250` (proven brevity lever per original CLAUDE.md — do not change).
+Single user turn, one-shot. `max_tokens: 2048`. Parse with `/\{[\s\S]*\}/` regex (matches `api/primitives-generate.js:62`).
 
-3. **Synthesis / clustering** (`convex/ai/synthesize.ts`) — NEW prompt. Clusters all starred cards across all participants. Explicit rule: "two ideas go in the same cluster only if a leader would pick ONE over the other." Instructed to echo sources verbatim so we can map back to `ideaId`. `max_tokens: 4096`, suggested `temperature: 0.3` to reduce run-to-run drift. Synthesis quality is the #1 product risk — budget an hour to iterate on this prompt with real session data.
+```
+You are helping a member of the ${functionName} function brainstorm how AI could help their team.
+${industry ? "Industry context: " + industry + "." : ""}
+${teamSize ? "Team size: " + teamSize + "." : ""}
+
+This person answered 3 questions about their FUNCTION (not their personal role):
+
+1) What does ${functionName} do well that AI could help you do 10x more of?
+   ${strengths}
+
+2) Where does ${functionName} get stuck or slowed down that AI could help unblock?
+   ${blockers}
+
+3) If you could snap your fingers and have AI handle one thing in ${functionName} tomorrow, what would it be?
+   ${oneWish}
+
+Generate 2-3 specific, actionable AI use case ideas for EACH of these 6 categories:
+1. Content Creation (text, presentations, reports, communications)
+2. Task Automation (repetitive processes, workflows, scheduling)
+3. Research & Synthesis (information retrieval, document analysis)
+4. Data & Insights (analysis, visualization, pattern recognition)
+5. Technical Work (spreadsheets, scripts, tools, systems)
+6. Strategy & Ideation (planning, brainstorming, problem-solving)
+
+Each idea MUST:
+- Reference concrete ${functionName} work (not generic office tasks).
+- Be under 40 words and immediately actionable.
+- Draw from the three answers above when possible.
+
+Never invent experiences, metrics, or outcomes this person didn't share.
+
+Respond in this exact JSON format (no markdown fences):
+{
+  "content": ["idea 1", "idea 2"],
+  "automation": ["idea 1", "idea 2"],
+  "research": ["idea 1", "idea 2"],
+  "data": ["idea 1", "idea 2"],
+  "coding": ["idea 1", "idea 2"],
+  "ideation": ["idea 1", "idea 2"]
+}
+```
+
+### 2. Chat refinement — `convex/ai/chatRefine.ts`
+
+Per-category "Go Deeper" chat. `max_tokens: 250` (DO NOT raise — original CLAUDE.md proved 250 is the sweet spot; 200 truncates JSON, 512 gets verbose). Separator parser mirrors `api/chat.js:159-167`.
+
+```
+This is a team brainstorming session for the ${functionName} function. Team members each explored ideas for how AI could help them, and we're now diving deeper into one category.
+
+You are helping brainstorm AI applications for ${category.title}: ${category.description}.
+
+PARTICIPANT PROFILE (functional level, not personal role):
+- Function: ${functionName}
+${industry ? "- Industry: " + industry : ""}
+- What ${functionName} does well today: ${intake.strengths}
+- Where ${functionName} gets stuck: ${intake.blockers}
+- One thing they'd snap their fingers to have AI do: ${intake.oneWish}
+
+CURRENT IDEAS FOR THIS CATEGORY:
+${currentBlock}
+
+YOUR STYLE:
+- Reference their actual function and the answers above. NO generic advice.
+- Each idea MUST be under 40 words. If it's over, cut it.
+- If they push back, adapt. Don't rephrase the same idea.
+- Never invent experiences, metrics, or outcomes. If suggesting they share a story, leave the content to them.
+
+RESPONSE FORMAT:
+First, write your response as plain text. HARD LIMIT: 2-3 sentences, MAX 60 words total. No preamble, no recap, no filler. End with a question that opens a DIFFERENT angle they haven't explored yet.
+Then write exactly this separator on its own line:
+---IDEAS---
+Then write a JSON array of suggested ideas (no markdown fences):
+[{"text": "Specific actionable AI idea under 40 words", "categoryId": "${category.id}"}]
+
+BREVITY IS MANDATORY. NEVER write more than 60 words before ---IDEAS---. Count them.
+```
+
+### 3. Synthesis / clustering — `convex/ai/synthesize.ts` (the #1 product risk)
+
+One-shot, cross-participant clustering. `max_tokens: 4096`, `temperature: 0.3` (reduce drift between runs). Budget ~1 hour in Phase C to iterate with 2–3 real multi-participant test runs before considering this shippable.
+
+```
+You are helping a ${functionName} team see where their AI ideas overlap.
+
+${participantCount} participants each starred their 5-10 favorite AI use case ideas. Below is the raw list.
+
+RAW STARRED IDEAS (${totalStars} total, across ${participantCount} people):
+
+[Content Creation]
+- (Jordan) Draft first-pass QBR decks from CRM pipeline data
+- (Priya) Turn win/loss notes into personalized outreach scripts
+- (Alex) Auto-generate campaign one-pagers from brief + brand guide
+...
+
+[Task Automation]
+- (Jordan) ...
+...
+
+YOUR JOB:
+Cluster ideas that mean roughly the same thing, even when worded differently. Each cluster should represent ONE distinct AI application. Keep clusters surprising and specific — do not merge genuinely different ideas just because they share a keyword.
+
+Rules:
+- Two ideas belong in the same cluster only if a ${functionName} leader would pick ONE of them over the other (they're interchangeable), not if they're merely related.
+- Ideas starred by only one person are valid single-member clusters — include them.
+- Write a short cluster TITLE (max 8 words) and SUMMARY (1-2 sentences) that captures what the cluster actually IS, concretely.
+- Pick the dominant categoryId: one of content | automation | research | data | coding | ideation.
+- List the exact source ideas verbatim so we can trace them back to their ideaId.
+
+Never invent experiences, metrics, or outcomes.
+
+Respond in this exact JSON format (no markdown fences):
+{
+  "clusters": [
+    {
+      "title": "Auto-draft QBR decks from CRM data",
+      "summary": "Generate first-pass customer review presentations from structured pipeline and account data, ready for human polish.",
+      "categoryId": "content",
+      "sources": [
+        {"participantName": "Jordan", "text": "Draft first-pass QBR decks from CRM pipeline data"},
+        {"participantName": "Alex", "text": "Build QBR slides from Salesforce export"}
+      ]
+    }
+  ]
+}
+
+Sort clusters by number of sources descending. Do not invent ideas. Every `sources[i].text` MUST appear verbatim from the raw list above so we can map it back to an ideaId.
+```
+
+**Source-mapping fallback:** if any `sources[i].text` doesn't exact-match an idea in the raw list, fall back to case-insensitive + whitespace-normalized match. If still unmatched, include the cluster but surface orphan sources in the UI (don't silently drop).
+
+### Chat behavior constraints (preserve from original CLAUDE.md)
+
+These come from the original app's hard-learned lessons — do NOT regress:
+
+- **Static chat openers** — `ChatDrawer` does NOT fire an LLM call on drawer open. Show a static greeting ("Let's explore ${category.title}. What would be most useful to dig into?") and let the user speak first. Eliminates 4–6s of latency and lets the user drive direction.
+- **Anti-hallucination constraint** — present in all three prompts above ("Never invent experiences, metrics, or outcomes"). Without this, the model fabricates anecdotes when intake is thin.
+- **60-word hard limit** for chat prose — reinforced by `max_tokens: 250`. Both are required; prompt-only instructions don't work reliably.
+- **Prompt brevity > prompt stuffing** — when the model gets verbose, TRIM the prompt (model mirrors input energy). Do not add "be brief" instructions on top of a long prompt.
 
 ---
 
@@ -242,14 +426,16 @@ Detailed prompts live in the Plan agent's blueprint (above in conversation). Key
 
 ## Build sequence (MVP-first)
 
-**Phase A — scaffold (half day):**
+**Total realistic estimate: 4–5 days** for solo build with prompt iteration and cross-tab testing. Each "phase" below is ~1 day (original "half day" estimates were optimistic — they don't account for Anthropic prompt tuning, real-world multi-tab testing, or edge-case polish).
+
+**Phase A — scaffold (~1 day):**
 1. `npm create vite@latest` → copy original's package.json deps + add `convex`, `react-router-dom@7`
 2. `npx convex dev` to init Convex deployment; set `ANTHROPIC_API_KEY` via `npx convex env set`
 3. Copy design files (`index.html`, `index.css`, Design Bible, eslint, `config/categories.js`)
 4. Write `convex/schema.ts`, `convex/lib/anthropic.ts`, `convex/lib/ids.ts`
 5. Wire `main.jsx` with `ConvexProvider` + `BrowserRouter`; stub 4 routes
 
-**Phase B — single-participant happy path (half day):**
+**Phase B — single-participant happy path (~1 day):**
 6. `convex/sessions.ts` + `AdminCreate.jsx` → admin URL created, session row in dashboard
 7. `convex/participants.ts` + `Join.jsx` → participant joins, localStorage seeded
 8. Adapt `IntakeView.jsx` → 3 questions → `submitIntake` mutation → triggers `generateCanvas` action
@@ -259,14 +445,14 @@ Detailed prompts live in the Plan agent's blueprint (above in conversation). Key
 12. `finalizeStars` mutation + submit button (5 ≤ stars ≤ 10)
 13. `MyBoardView.jsx` — read-only recap with personal export button (`exportParticipantDocx`)
 
-**Phase C — admin board + synthesis (half day):**
+**Phase C — admin board + synthesis (~1 day, plus ~1 hour prompt iteration):**
 14. `AdminBoard.jsx` shell with `ShareLinkPanel`, `RosterPanel`, `RawStarredList`, `SynthesizeButton`
 15. `listParticipants` and `listRawStarred` queries
 16. `synthesize.ts` action + prompt — THIS IS THE ITERATION-HEAVY STEP; expect prompt tweaks
 17. `ClusterCard.jsx` renders clusters with title/summary/category badge/source count/attribution
 18. Wire participant `MyBoardView` to show team board toggle when `latestSynthesis.status === "ready"`
 
-**Phase D — voting round (half day):**
+**Phase D — voting round (~1 day):**
 19. Admin controls: `votesPerParticipant` input (number, default 3) + `openVoting` / `closeVoting` mutations
 20. `VoteView.jsx` (participant) — shows all starred ideas grouped visually by cluster (cluster title as section header, ideas as voteable cards underneath); vote budget counter at top; one-vote-per-idea checkbox/toggle
 21. `castVote` / `removeVote` mutations with server-side budget check (count < votesPerParticipant) and uniqueness check (no duplicate vote on same idea by same participant)
@@ -274,7 +460,7 @@ Detailed prompts live in the Plan agent's blueprint (above in conversation). Key
 23. On `closeVoting`: reveal ranked list to all participants; ideas sorted by vote count; cluster badge as metadata on each idea
 24. `RankedIdeasView.jsx` — shared display component used by admin AND locked participants post-vote
 
-**Phase E — export + polish:**
+**Phase E — export + polish (~1 day):**
 25. `exportTopIdeasDocx` — primary deliverable; ranked ideas list with vote count + attribution + cluster badge
 26. `exportSynthesisDocx` — secondary/full-board export (clusters + raw breakdown per participant); keep as optional download
 27. `exportParticipantDocx` — personal board export (already built in Phase B step 13)
@@ -291,7 +477,7 @@ Detailed prompts live in the Plan agent's blueprint (above in conversation). Key
 |---|---|---|
 | 6 primitives + copy | `src/config/categories.js` | Copy verbatim |
 | Design tokens | `src/index.css` + `AI_PLAYBOOK_BOLD_MODERN_DESIGN_BIBLE.md` | Copy verbatim |
-| Canvas UI (cards, sections, chat trigger) | `src/components/views/PrimitivesView.jsx` | Adapt: swap `dispatch`→`useCanvasDispatch`, `state.primitives`→`useQuery` |
+| Canvas UI (cards, sections, chat trigger) | `src/components/views/PrimitivesView.jsx` | Adapt: swap `dispatch`→`useCanvasDispatch`, `state.primitives`→`useQuery`. Replace `onContinue` prop handler with `finalizeStars` mutation call; drop `onStartOver` prop entirely (no participant-level restart in team app) |
 | Idea card interactions | `src/components/primitives/IdeaCard.jsx`, `AddIdeaInput.jsx`, `CategorySection.jsx` | Copy verbatim (work through dispatch adapter) |
 | Per-category chat | `src/components/shared/ChatDrawer.jsx` | Adapt data source only; UI unchanged |
 | Generation loading animation | `src/components/shared/GeneratingIndicator.jsx` | Copy, parameterize step list |
@@ -357,10 +543,41 @@ Highest-leverage files to build carefully; the rest cascades from these:
 
 ---
 
+## Mobile support
+
+The app targets both desktop and mobile. Workshops happen in-person (facilitator on laptop, participants on phones) and async (everyone on their own device).
+
+**What comes for free from the original:**
+- Original design system is responsive (Tailwind breakpoints at 992px / 768px / 576px per the Design Bible). Card grids reflow to single column on mobile. IdeaCard, CategorySection, ChatDrawer, IntakeView all inherit these responsive patterns when copied/adapted.
+- Montserrat renders well at mobile sizes. Touch targets on IdeaCard (star, edit, delete) are already sized for thumb use in the original.
+
+**What needs explicit mobile treatment in the new components:**
+- **`AdminBoard.jsx`** (NEW) — has the most density (roster + raw starred + synthesize button + cluster view + voting controls + export). Use a tabbed layout on mobile (<768px): tabs for "Roster", "Ideas", "Synthesis", "Voting", "Export". On desktop, all sections visible simultaneously.
+- **`VoteView.jsx`** (NEW) — with 80+ voteable ideas, mobile needs:
+  - Sticky vote-budget counter at top (shows `{used}/{budget} votes`)
+  - Sticky cluster section headers so user knows which cluster they're scrolling through
+  - Large tap targets on vote toggles (minimum 44×44px)
+  - Vote checkbox on the right edge of each idea card (thumb-friendly reach)
+- **`RankedIdeasView.jsx`** (NEW) — simple vertical list; naturally mobile-friendly. Just ensure vote-count chip and cluster badge remain legible at small widths.
+- **`Join.jsx`** (NEW) — single name input; trivially mobile-friendly, just use `autoComplete="off"`, `autoFocus`, and appropriate keyboard via `inputMode="text"`.
+
+**What to verify during Phase E polish:**
+- Participant flow end-to-end on 375×812 (iPhone SE size) — intake fields, canvas, chat drawer, vote view all usable with one thumb.
+- Chat drawer on mobile should be full-screen overlay (not side panel) — check the original ChatDrawer already handles this; if not, add media query.
+- Admin flow at ≥768px only is acceptable for MVP (workshops are typically admin-on-laptop). Flag in CLAUDE.md for the new repo.
+
+**Out of MVP scope:** tablet-specific optimizations, landscape-phone optimizations, PWA/install, offline support.
+
+---
+
 ## Risks to watch during build
 
 1. **Synthesis prompt quality.** Mushy clusters = bad product. Budget an hour in Phase C to iterate against 2–3 real multi-participant test runs. `temperature: 0.3` to reduce drift. Keep raw starred list visible as a safety net.
 2. **LLM latency masking.** Canvas gen can hit 8–12s cold. The existing `GeneratingIndicator` 6-step animation already masks this well; do NOT swap it for a bare spinner.
-3. **Admin URL loss.** Admin key only lives in URL. Surface a "Bookmark this — only way back" banner on session creation.
+3. **Admin URL loss.** Admin key only lives in URL. Surface a "Bookmark this — only way back" banner on session creation. Optional: auto-copy admin URL to clipboard on create. No recovery path in MVP — accept this limitation explicitly.
 4. **Verbatim source match in synthesis.** If LLM paraphrases source cards, we can't map to `ideaId`. Fallback: case/whitespace-normalized match; surface unmatched sources rather than dropping.
-5. **Multi-tab same-participant:** make `finalizeStars` idempotent (no-op if already locked).
+5. **Multi-tab same-participant:** make `finalizeStars` idempotent (no-op if already locked). Same for `openVoting`, `closeVoting`, and `castVote` — every state-changing mutation must handle the "already in that state" case as a no-op, not an error.
+6. **`castVote` vs. `closeVoting` race.** If participant sends castVote at the same moment admin sends closeVoting, both hit Convex within milliseconds. Design: `closeVoting` mutation reads `sessions.votingStatus`, sets to `"closed_with_results"`, writes. `castVote` reads `sessions.votingStatus` first and rejects if !== `"open"`. Convex serializes mutations per-document, so this works cleanly if both operate on `sessions`. Verify in testing.
+7. **Re-synthesis mid-voting.** Votes reference `ideaId` (stable), so votes persist across synthesis re-runs. But clusters may change — the ranked list UI must handle "voted idea now has no cluster membership" gracefully (show as `[Uncategorized]`).
+8. **Vote UI at scale.** 10 participants × 8 stars = up to 80 voteable ideas (fewer if starred ideas overlap). UI needs sticky cluster headers + smooth scroll. Virtualization not required at this scale, but flag if usage grows.
+9. **Participant identity is "whoever holds the slug + localStorage entry."** Two people sharing a laptop both become "Jordan" unless different browser profiles. Mitigation: prominent participant name displayed in Header; "Not you? Reset" link clears localStorage and re-routes to `/join`.
