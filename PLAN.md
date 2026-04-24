@@ -126,6 +126,7 @@ C:\Users\yonat\OneDrive\AI\Apps\Team Primitives\
 │   ├── canvas.ts                                   [NEW] ideas CRUD, toggleStar, finalizeStars, chat messages
 │   ├── synthesis.ts                                [NEW] getLatestSynthesis, listRawStarred
 │   ├── votes.ts                                    [NEW] openVoting, closeVoting, castVote, removeVote, listVoteTallies, listMyVotes
+│   ├── ownerQueries.ts                             [NEW] super-admin-gated: listAllSessions, getSessionSummary, getAdminKeyForSession, bulkExport (action). All require SUPER_ADMIN_KEY env var.
 │   ├── ai/
 │   │   ├── generateCanvas.ts                       [NEW action] adapted from api/primitives-generate.js
 │   │   ├── chatRefine.ts                           [NEW action] adapted from api/chat.js (primitives branch only)
@@ -142,6 +143,7 @@ C:\Users\yonat\OneDrive\AI\Apps\Team Primitives\
 │   │   ├── AdminBoard.jsx                          [NEW] roster + raw starred + synthesize + clusters + export
 │   │   ├── Join.jsx                                [NEW] name entry
 │   │   ├── Participant.jsx                         [NEW] shell; dispatches by participant.phase
+│   │   ├── OwnerDashboard.jsx                      [NEW] super-admin cross-session dashboard; sortable table; bulk export
 │   │   └── NotFound.jsx                            [NEW]
 │   ├── components/
 │   │   ├── views/
@@ -182,6 +184,18 @@ C:\Users\yonat\OneDrive\AI\Apps\Team Primitives\
 │       ├── export.js                               [ADAPT] add exportParticipantDocx + exportSynthesisDocx + exportTopIdeasDocx (ranked list is the primary post-vote artifact)
 │       ├── localParticipant.js                     [NEW] localStorage helpers for {sessionCode: participantId}
 │       └── sessionCode.js                          [NEW]
+├── scripts/                                        [NEW — Phase F, simulation harness; not bundled, node-only]
+│   ├── simulate-workshop.mjs                       [NEW] orchestrator for npm run simulate / simulate:full
+│   ├── personas/                                   [NEW] 10 function briefs + persona archetypes (JSON)
+│   │   ├── hr.json
+│   │   ├── product-marketing.json
+│   │   └── ... (10 total)
+│   └── lib/
+│       ├── convex-client.mjs                       [NEW] Convex SDK wrapper for mutation/action calls
+│       ├── persona-llm.mjs                         [NEW] Anthropic SDK wrapper for persona responses
+│       ├── report-writer.mjs                       [NEW] writes reports/YYYY-MM-DD-<run>/ folder tree
+│       └── playwright-spotcheck.mjs                [NEW, optional] drives 1 real browser via Playwright MCP concurrent with Node sim
+├── reports/                                        [NEW, gitignored] simulator output: per-run folder, per-session data + exports + index.md
 └── (no api/ directory — all server logic in Convex)
 ```
 
@@ -199,8 +213,10 @@ C:\Users\yonat\OneDrive\AI\Apps\Team Primitives\
 sessions                      { code, functionName, teamSize?, industry?, adminKey, createdAt,
                                 status: "open"|"closed",
                                 votingStatus: "idle"|"open"|"closed_with_results",
-                                votesPerParticipant: number? }
-                              index by_code
+                                votesPerParticipant: number?,
+                                origin: "user"|"simulation" }
+                              indexes by_code, by_created_at (for super-admin list sort),
+                                      by_origin (for super-admin filter)
 
 participants                  { sessionId, name, slug, phase: "intake"|"canvas"|"locked",
                                 canvasGeneratedAt?, starsLockedAt?, createdAt }
@@ -419,6 +435,7 @@ These come from the original app's hard-learned lessons — do NOT regress:
                                         — if synthesis ready: toggle to team board
                                         — if voting open: toggle to voting view
                                         — if voting completed: toggle to final ranked list
+/owner?k=:superKey                  → OwnerDashboard  (Phase G; invalid superKey → redirect /)
 /*                                  → NotFound
 ```
 
@@ -426,7 +443,7 @@ These come from the original app's hard-learned lessons — do NOT regress:
 
 ## Build sequence (MVP-first)
 
-**Total realistic estimate: 4–5 days** for solo build with prompt iteration and cross-tab testing. Each "phase" below is ~1 day (original "half day" estimates were optimistic — they don't account for Anthropic prompt tuning, real-world multi-tab testing, or edge-case polish).
+**Total realistic estimate: 6–7 days** for solo build including simulation harness and super-admin dashboard. Breakdown: Phases A–E (core app) = 4–5 days; Phase F (simulator) = ~1 day; Phase G (super-admin dashboard) = ~1 day. Original "half day" estimates per phase were optimistic — they don't account for Anthropic prompt tuning, real-world multi-tab testing, or edge-case polish.
 
 **Phase A — scaffold (~1 day):**
 1. `npm create vite@latest` → copy original's package.json deps + add `convex`, `react-router-dom@7`
@@ -468,6 +485,95 @@ These come from the original app's hard-learned lessons — do NOT regress:
 29. Admin "Close session" toggle
 30. "Not you? Reset" link on participant to clear localStorage entry
 31. Write new CLAUDE.md for the repo
+
+**Phase F — Workshop Simulation harness (~1 day):**
+32. Set up a second Convex deployment for staging (`npx convex dev --configure team-primitives-staging`). Simulator targets staging; prod is never polluted by test data.
+33. Add `sessions.origin: "user" | "simulation"` field to schema; default `"user"` on live app, `"simulation"` when script creates sessions (via a `create-for-simulation` mutation gated by an env-var key).
+34. Build `scripts/simulate-workshop.mjs` — orchestrator. See file structure + behavior below.
+35. Build `scripts/personas/*.json` — 10 function briefs (HR, Product Marketing, Sales, Finance, Engineering, Legal, Customer Success, Ops, Marketing, People Ops), each with 5–8 persona archetypes (sub-role + voice sample).
+36. Build `scripts/lib/persona-llm.mjs` — wraps Anthropic SDK; given a function brief + persona archetype, generates persona-appropriate intake answers and chat messages. This is the "second LLM" that roleplays each participant.
+37. Build `scripts/lib/convex-client.mjs` — thin wrapper around Convex SDK for all mutations/actions needed by the simulator.
+38. Build `scripts/lib/playwright-spotcheck.mjs` (optional, uses Playwright MCP if available) — drives ONE real browser through the participant flow in parallel with the Node script, catches UI race conditions the API-level simulator can't see.
+39. Report writer: creates `reports/YYYY-MM-DD-<run-id>/index.md` + per-session `data.json` + both `.docx` exports + `run-summary.md` (timing, token usage, errors).
+40. Add npm scripts: `simulate:single` (1 session × 6 personas, ~$2, ~2 min), `simulate` (3 × 5, ~$8, ~5 min), `simulate:full` (10 × 6, ~$20, ~10–15 min).
+
+**Phase G — Super-admin dashboard (~1 day):**
+41. Add `SUPER_ADMIN_KEY` env var to Convex (via `npx convex env set`). Generate a 32-char random secret. Never exposed to client.
+42. Add Convex queries gated by this key: `listAllSessions`, `getSessionSummary(sessionId, superKey)`, `getAdminKeyForSession(sessionId, superKey)` (returns per-session admin key for deep-link), `getSessionExportBundle(sessionId, superKey)`.
+43. New route `/owner?k=:superKey` → `OwnerDashboard.jsx`. Validates key via `getSessionForOwner` query; invalid → redirect `/`.
+44. Table UI: sortable columns — function, created, origin (user/simulation), participants, ideas total, stars total, synthesis status, voting status, top-voted idea preview (truncated). Row click → new tab to that session's admin URL (super-admin query returns the embedded `adminKey`).
+45. Filters: hide simulation runs (toggle), date range, origin, function.
+46. Bulk export: "Download selected as ZIP" — Convex action fetches each session's data, generates both `.docx` files per session, zips, returns a download URL. Uses `jszip` (new dep).
+47. Known limitation to document: super-admin can see all sessions including participant names + content. Acceptable for Yonatan-as-owner model; would need consent flow if productized.
+
+---
+
+## Simulation harness — file structure + behavior
+
+```
+scripts/
+├── simulate-workshop.mjs              # orchestrator; npm scripts call this
+├── personas/
+│   ├── hr.json                        # { function, brief, archetypes: [{ subRole, voice }] }
+│   ├── product-marketing.json
+│   ├── sales.json
+│   ├── finance.json
+│   ├── engineering.json
+│   ├── legal.json
+│   ├── customer-success.json
+│   ├── ops.json
+│   ├── marketing.json
+│   └── people-ops.json
+└── lib/
+    ├── convex-client.mjs              # Convex SDK wrapper (mutations + actions)
+    ├── persona-llm.mjs                # Anthropic SDK → generates persona answers
+    ├── report-writer.mjs              # writes reports/ folder contents
+    └── playwright-spotcheck.mjs       # optional: drives 1 real browser via Playwright MCP
+reports/                               # gitignored; per-run outputs
+```
+
+**Per-session flow driven by the simulator:**
+1. Create session (`origin: "simulation"`, function from JSON, random team size + industry)
+2. For each persona archetype: `joinSession` → `submitIntake` (persona-LLM generates answers) → wait for `generateCanvas` action → 2–3 `chatRefine` turns (persona-LLM generates push-back and follow-ups) → star random 5–8 ideas → `finalizeStars`
+3. After all personas locked: `synthesize` action → `openVoting` with random `votesPerParticipant` (3/5/7) → each persona casts votes (persona-LLM picks top ideas aligned with their persona's priorities) → `closeVoting`
+4. Call `getSessionExportBundle` → save `top-ideas.docx`, `full-board.docx`, `data.json` to `reports/<run-id>/<session-id>/`
+5. Append line to `reports/<run-id>/index.md`: `- [HR session abc123](admin URL) — 6 participants, 47 ideas, 12 clusters, top-voted: "Draft candidate rejection emails from ATS data" (8 votes)`
+
+**Concurrency:** `p-limit(3)` by default — max 3 sessions running simultaneously. Prevents Anthropic rate-limit hits (50 RPM tier 1) and Convex write contention. `--max-concurrency` flag to tune.
+
+**Verification checklist for each simulation run:**
+- [ ] All sessions completed without unrecovered errors
+- [ ] No Anthropic 429s hit without graceful retry
+- [ ] Each `docx` opens in Word without corruption
+- [ ] Spot-check 3 random sessions: do the synthesis clusters make sense? Do the top-voted ideas feel like real workshop priorities?
+- [ ] Re-run same simulation with identical inputs (seeded persona LLM) — do outputs differ substantially? Flags prompt determinism issues.
+- [ ] Total cost and token usage match expectations (within 2×).
+
+---
+
+## Super-admin dashboard — sketch
+
+Route: `/owner?k=:superKey`
+
+Table columns (all sortable):
+```
+| Function         | Created       | Origin | Parts | Ideas | Stars | Synth? | Voting | Top Idea (8 votes)                  | Actions           |
+|------------------|---------------|--------|-------|-------|-------|--------|--------|-------------------------------------|-------------------|
+| HR               | 2026-04-24    | sim    |   6   |  47   |  32   |  ✓     | closed | Draft rejection emails from ATS...  | [Open] [Export]   |
+| Product Marketing| 2026-04-24    | user   |   5   |  38   |  28   |  ✓     | open   | Auto-generate campaign one-pagers...| [Open] [Export]   |
+```
+
+Filters above table: [ ] Hide simulations | [ ] Last 30 days | Function: [any ▾] | Status: [any ▾]
+
+Below table: `[Export all visible as ZIP]` button.
+
+Row click "[Open]" → new tab to `/s/:code/admin?k=<that session's adminKey>` (super-admin query returns it). Same per-session admin board as today, no changes.
+
+"[Export]" in the row → downloads that session's `top-ideas.docx` directly.
+
+"Export all visible as ZIP" → Convex action assembles a ZIP of docx files, returns a signed URL; browser downloads.
+
+Sessions accumulate forever in MVP. If you ever get to hundreds of sessions, add a "Archive" toggle that sets `status: "archived"` and hides from default view.
 
 ---
 
@@ -524,6 +630,22 @@ Four browser windows (use incognito to simulate different users):
 12. **Resilience:** refresh participant mid-canvas (state persists), open participant URL in second tab (stays in sync on stars AND votes), re-synthesize mid-voting (clusters update but votes on existing ideas persist because votes reference `ideaId`).
 13. **Edge cases:** two joiners named "Jordan" (second becomes `jordan-2`), try to star 11 cards (rejected), try to finalize with 4 stars (button disabled + server rejects), admin URL without `k=` (redirect home), synthesize with 0 locked (button disabled), try to open voting before synthesis (button disabled), try to vote when voting closed (mutation rejects), re-open voting after closing (allowed — resets `votingStatus` to "open"; existing votes preserved; admin can change `votesPerParticipant` but must handle case where existing votes exceed new budget — MVP: reject reducing below current max).
 
+### Phase F verification (simulation harness)
+14. Run `npm run simulate:single` — expect: 1 session × 6 personas completes end-to-end in ~2 min, costs ~$2 in Anthropic usage, outputs `reports/<date>/index.md` linking to 1 session, per-session folder has `data.json` + 2 `.docx` files.
+15. Run `npm run simulate:full` — expect: 10 sessions × 6 personas, ~10–15 min, ~$20. Spot-check 3 random sessions in the real UI via their admin URLs: do synthesis clusters make sense? Do top-voted ideas feel workshop-appropriate?
+16. Cross-deployment check: simulated sessions land in `team-primitives-staging` deployment; prod deployment stays empty of `origin: "simulation"` rows.
+17. Re-run same simulation twice; diff the outputs. Expect: some variation in LLM outputs but overall themes consistent. If outputs differ dramatically run-to-run, that's a prompt-determinism red flag to address.
+
+### Phase G verification (super-admin dashboard)
+18. Open `/owner?k=<SUPER_ADMIN_KEY>` — table shows all sessions from Phase F simulation run + any real sessions created via Phase B-E testing.
+19. Invalid superKey (`/owner?k=wrong`) → redirect home. No data leaked to client.
+20. Click "Open" on a simulated HR session → new tab opens the admin board for that session (super-admin query returned the embedded adminKey).
+21. Sort table by vote count descending — top-voted ideas surface across all sessions.
+22. Filter to hide simulations → only `origin: "user"` sessions visible.
+23. Click "Export" on one row → downloads that session's `top-ideas.docx`.
+24. Select 3 rows → "Export selected as ZIP" → downloads a ZIP with 3 session folders, each with its 2 `.docx` files.
+25. Verify `SUPER_ADMIN_KEY` is never visible in client bundle (`grep` the Vite output after `npm run build` — should be 0 hits on the actual secret value).
+
 ---
 
 ## Critical files for implementation
@@ -540,6 +662,10 @@ Highest-leverage files to build carefully; the rest cascades from these:
 - `C:\Users\yonat\OneDrive\AI\Apps\Team Primitives\src\components\views\VoteView.jsx` (NEW — participant voting UI)
 - `C:\Users\yonat\OneDrive\AI\Apps\Team Primitives\src\components\views\RankedIdeasView.jsx` (NEW — shared post-voting display)
 - `C:\Users\yonat\OneDrive\AI\Apps\Team Primitives\src\utils\export.js` (adapt: add `exportTopIdeasDocx` as primary post-vote artifact)
+- `C:\Users\yonat\OneDrive\AI\Apps\Team Primitives\scripts\simulate-workshop.mjs` (NEW — Phase F orchestrator)
+- `C:\Users\yonat\OneDrive\AI\Apps\Team Primitives\scripts\lib\persona-llm.mjs` (NEW — Anthropic-driven persona responses)
+- `C:\Users\yonat\OneDrive\AI\Apps\Team Primitives\src\routes\OwnerDashboard.jsx` (NEW — Phase G super-admin dashboard)
+- `C:\Users\yonat\OneDrive\AI\Apps\Team Primitives\convex\ownerQueries.ts` (NEW — super-admin-gated queries + bulk export action)
 
 ---
 
