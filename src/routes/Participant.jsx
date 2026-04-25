@@ -2,12 +2,14 @@
 // Persona: participant going through intake -> canvas -> locked phases.
 // Dispatches to the correct view based on participant.phase.
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useParams } from "react-router-dom";
 import { useQuery, useAction } from "convex/react";
 import { api } from "../../convex/_generated/api";
 import { getParticipantId } from "../utils/localParticipant";
 import IntakeView from "../components/views/IntakeView";
+import CanvasView from "../components/views/CanvasView";
+import MyBoardView from "../components/views/MyBoardView";
 import { C } from "../config/constants";
 
 export default function Participant() {
@@ -72,19 +74,11 @@ function ParticipantInner({ session, participant, isOwner }) {
   }
 
   if (participant.phase === "canvas") {
-    return <CanvasPlaceholder session={session} participant={participant} />;
+    return <CanvasView session={session} participant={participant} />;
   }
 
   if (participant.phase === "locked") {
-    return (
-      <FullPageStatus>
-        Your contribution is locked in ✓
-        <br />
-        <span className="text-sm text-neutral-500">
-          [stub] MyBoardView (Phase B step 13) will render here.
-        </span>
-      </FullPageStatus>
-    );
+    return <MyBoardView session={session} participant={participant} />;
   }
 
   return <FullPageStatus>Unknown participant phase.</FullPageStatus>;
@@ -120,24 +114,6 @@ function CanvasGeneratingScreen({ error, onRetry }) {
         </h1>
         <p className="text-sm text-neutral-600">
           This takes 6–10 seconds. We're brainstorming use cases across all 6 primitive categories based on your answers.
-        </p>
-      </div>
-    </main>
-  );
-}
-
-function CanvasPlaceholder({ session, participant }) {
-  return (
-    <main className="min-h-screen bg-white text-black px-6 py-12">
-      <div className="max-w-4xl mx-auto">
-        <h1 className="text-3xl font-bold tracking-tight mb-2">
-          Your {session.functionName} AI canvas
-        </h1>
-        <p className="text-sm text-neutral-500 mb-6">
-          Welcome, {participant.name} ({participant.slug}). [stub] CanvasView arrives in Phase B step 10.
-        </p>
-        <p className="text-xs text-neutral-400">
-          Canvas was generated. Ideas live in Convex — check the dashboard or query the `ideas` table.
         </p>
       </div>
     </main>

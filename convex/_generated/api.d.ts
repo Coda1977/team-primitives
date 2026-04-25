@@ -9,6 +9,7 @@
  */
 
 import type * as aiInternal from "../aiInternal.js";
+import type * as ai_chatRefine from "../ai/chatRefine.js";
 import type * as ai_generateCanvas from "../ai/generateCanvas.js";
 import type * as canvas from "../canvas.js";
 import type * as intake from "../intake.js";
@@ -26,6 +27,7 @@ import type {
 
 declare const fullApi: ApiFromModules<{
   aiInternal: typeof aiInternal;
+  "ai/chatRefine": typeof ai_chatRefine;
   "ai/generateCanvas": typeof ai_generateCanvas;
   canvas: typeof canvas;
   intake: typeof intake;
