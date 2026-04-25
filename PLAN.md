@@ -55,6 +55,20 @@ Each teammate answers these three about the **function**, not their personal rol
   - **Top Ideas (ranked list)** — Word/PDF with ideas ordered by team votes; primary post-vote deliverable
   - **Full board** — optional secondary export with synthesized clusters + raw breakdown per participant
 
+### Live-workshop admin view (during the workshop, NOT post-processing)
+While participants are working, the admin needs activity signals to facilitate effectively. The roster panel must show, per participant row:
+- **Name + slug**
+- **Current phase** with chip styling: `Intake` (gray) | `Canvas` (blue) | `Locked` (green)
+- **Counts:** ideas total, starred so far (e.g., "12 ideas, 4 starred")
+- **Time in current phase** computed from `phaseEnteredAt` (= max of `createdAt`, `canvasGeneratedAt`, `starsLockedAt`): "8 min in Canvas"
+- **Idle indicator** when `now - lastActivityAt > 90s`: subtle yellow dot or "idle 4 min" text. Helps admin spot stuck participants.
+
+Sort options: by phase (default — groups stuck/done together), by name, by last activity desc. Default sort surfaces participants who haven't moved phases recently.
+
+Roster query updates reactively via Convex subscription — admin sees changes within ~1s of any participant mutation.
+
+No "preview participant's canvas" feature in MVP (privacy + scope). If admin wants to peek, they can open the participant URL in a new tab as themselves.
+
 ### Team voting phase (new)
 After synthesis, admin opens a voting round. Key rules:
 - **Unit of voting = individual idea**, not cluster. Clusters are a visual organizing tool only. If two similar ideas sit in one cluster, voters pick the specific idea with the wording they prefer.
@@ -64,6 +78,19 @@ After synthesis, admin opens a voting round. Key rules:
 - **Vote counts hidden from participants while voting is open** (reduces bandwagon bias); admin sees live tallies.
 - When admin closes voting → final ranked list is revealed to all participants on the team board.
 - **Final output:** ideas sorted by vote count, with cluster badge as metadata. Participant attribution retained. This is what goes into the "Top Ideas" export.
+
+### Workshop duration & facilitation tempo
+Reference times for facilitators planning a session (assumes 6 participants):
+- **Pre-session setup (admin only):** ~2 min — create session, copy participant URL, share via Zoom/Slack/email.
+- **Phase 1: Join + intake** (each participant): ~5 min — join via URL, enter name, answer 3 questions.
+- **Phase 2: Canvas generation** (per participant, parallel): ~6–10s LLM latency, then ~10–15 min for refinement (chat per category, edit/add/delete cards) and starring 5–10 favorites.
+- **Phase 3: Synthesis** (admin click + LLM): ~10–20s of synthesis runtime, then admin spends ~2–3 min reviewing clusters.
+- **Phase 4: Voting** (admin opens, participants vote): ~5 min for participants to cast votes, then admin closes.
+- **Phase 5: Wrap-up** (admin export + sharing): ~2 min.
+
+**Total session duration:** ~30–40 minutes from first participant joining to ranked list ready. Facilitator should plan for 45 min including buffer.
+
+Activity signals in the live admin view (idle indicator, time-in-phase) help facilitators decide when to verbally nudge ("everyone please wrap up your stars in 2 min") — the app does NOT enforce timeboxes.
 
 ### Identity & permissions
 - **Admin** = possession of the `adminKey` query param in URL. Every admin mutation validates it.
@@ -93,6 +120,103 @@ Two orthogonal status fields on `sessions`:
 - If voting closed before they finish: they see the final ranked list read-only (acceptable MVP behavior)
 
 No join-time gates based on session state. `joinSession` mutation only checks `sessions.status === "open"`.
+
+---
+
+## Copy deck (participant + admin user-facing strings)
+
+The plan specifies components and flow but the participant experience depends heavily on the words on screen. Below are MVP strings — implementer should treat these as the canonical copy and not invent ad-hoc.
+
+### Join screen (`Join.jsx`)
+- Page header: `Team Primitives`
+- Subtitle: `${functionName} workshop — brainstorm where AI fits in your function`
+- Body line: `Enter your name to start. This will take about 20 minutes — make sure you have time to focus.`
+- Input label: `Your name`
+- Input placeholder: `e.g. Jordan, Priya, Alex`
+- Submit button: `Join workshop →`
+- Footer: `${participantCount} ${participantCount === 1 ? "person" : "people"} already joined`
+
+### Intake screen (`IntakeView.jsx`)
+- Header: `Tell us about ${functionName}`
+- Subheader: `Three questions about your function — not your personal role. Answer however you'd describe it to a colleague. ~3 min.`
+- Question 1 label: `What does ${functionName} do well that AI could help you do 10x more of?`
+- Question 1 helper: `Strengths AI could amplify. List things you're already good at.`
+- Question 2 label: `Where does ${functionName} get stuck or slowed down that AI could help unblock?`
+- Question 2 helper: `Bottlenecks, handoffs, waiting time, things that drain energy.`
+- Question 3 label: `If you could snap your fingers and have AI handle one thing in ${functionName} tomorrow, what would it be?`
+- Question 3 helper: `The one thing you'd offload first.`
+- Word-count chip (per textarea): `0–5 words: "Add a bit more"` / `6–15: "Good start"` / `16+: "Great detail"`
+- Submit button (disabled state): `Fill all 3 to continue`
+- Submit button (enabled): `Generate my AI canvas →`
+
+### Generating state (`GeneratingIndicator.jsx` for canvas gen)
+- Header: `Generating your AI canvas…`
+- Subline: `This takes 6–10 seconds. We're brainstorming use cases across all 6 primitive categories based on your answers.`
+- Step rotator: reuses `PRIMITIVES_GEN_STEPS` from `src/config/categories.js` unchanged.
+
+### Canvas screen (`CanvasView.jsx`)
+- Header: `Your ${functionName} AI canvas`
+- Subheader: `Six categories. Edit, refine via chat, or add your own. **Star 5–10 favorites** to send to the team board.`
+- Category section header (per primitive): `${number}. ${title}` + `${description}` (italic)
+- "Go Deeper" button text: `💬 Go deeper on ${title}`
+- Add idea input placeholder: `Add your own idea for ${title}…`
+- Star tooltip: `Star to include in team board (5–10)`
+- Stats bar: `${total} ideas | ${categoriesFilled}/6 categories | ${starred} starred`
+- Submit-stars button (disabled below 5): `Star ${5 - starred} more to continue`
+- Submit-stars button (enabled): `Submit stars to team →`
+- Submit-stars confirm modal: `Submit ${starred} starred ideas to the team board? You won't be able to add or change ideas after this — but you can still vote later.`
+
+### My Board (locked) screen (`MyBoardView.jsx`)
+- Header: `Your contribution is locked in ✓`
+- Subheader (no synthesis yet): `Waiting for ${remaining} more teammate${remaining === 1 ? "" : "s"} to finish, then your admin will synthesize the team's ideas.`
+- Subheader (synthesis ready, no voting): `The team board is ready. Click "Team board" to see how everyone's ideas come together.`
+- Subheader (voting open): `Voting is open! You have ${budget} votes. Click "Vote" to choose your team's priorities.`
+- Subheader (voting closed): `Voting is complete. Click "Final results" to see the team's top ideas.`
+- Toggle tabs: `My board` | `Team board` | `Vote` | `Final results` (only shown when relevant)
+- Personal export button: `Download my ideas as Word`
+- "Not you?" link (footer): `Not you? Reset and re-enter your name`
+
+### Vote view (`VoteView.jsx`)
+- Header: `Vote for your team's top ideas`
+- Subheader: `You have ${budget} votes. One vote per idea. Pick the ideas you most want to see ${functionName} actually do.`
+- Sticky budget chip (top): `${used}/${budget} votes used`
+- Cluster section header: `${cluster.title}` (with optional `(${cluster.summary})` tooltip)
+- Vote button (off): `Vote`
+- Vote button (on): `✓ Voted`
+- Footer: `Votes remain hidden from the team until the admin closes voting.`
+
+### Ranked list / final results (`RankedIdeasView.jsx`)
+- Header: `Your team's top AI ideas`
+- Subheader: `Ranked by votes from all ${participantCount} teammates.`
+- Per-row format: `${rank}. ${ideaText} — ${voteCount} votes — ${contributorName} — ${clusterTitle}`
+- Tie note (when ties exist): `Ties broken by who first contributed the idea.`
+- Owner/admin export buttons: `Download ranked list (Word)` | `Download full board (Word)`
+
+### Admin board (`AdminBoard.jsx`)
+- Header: `${functionName} workshop — admin`
+- Pre-synthesis empty state: `Waiting for participants to join and lock their stars. You'll be able to synthesize once at least 2 are done.`
+- Synthesize button (disabled): `Synthesize (need at least 2 locked participants)`
+- Synthesize button (enabled): `Synthesize team ideas`
+- Re-synthesize button: `Re-synthesize (incorporate latest stars)`
+- Open voting button: `Open voting round`
+- Vote budget input label: `Votes per participant`
+- Close voting button: `Close voting & reveal results`
+- Bookmark banner (top, dismissible): `🔖 Bookmark this URL — it's the only way back to this admin view.`
+
+### Admin landing (`AdminCreate.jsx`)
+- Header: `New workshop`
+- Subheader: `Create a session, share the participant URL with your team, and run the workshop together.`
+- Function input label: `Function (required)` — placeholder: `HR, Product Marketing, Sales…`
+- Team size label (optional): `Team size`
+- Industry label (optional): `Industry / company context`
+- Submit button: `Create workshop`
+- Post-create banner: `Workshop created. Share this URL with participants:` + `[copy button]` + admin-URL bookmark prompt.
+
+### Generic strings
+- 404: `Workshop not found. Check the URL with whoever invited you.`
+- LLM error: `Hmm, that didn't work. Try again?`
+- Network offline indicator: `Offline — changes will save when you reconnect.`
+- Network reconnected: `Back online ✓`
 
 ---
 
@@ -126,7 +250,7 @@ C:\Users\yonat\OneDrive\AI\Apps\Team Primitives\
 │   ├── canvas.ts                                   [NEW] ideas CRUD, toggleStar, finalizeStars, chat messages
 │   ├── synthesis.ts                                [NEW] getLatestSynthesis, listRawStarred
 │   ├── votes.ts                                    [NEW] openVoting, closeVoting, castVote, removeVote, listVoteTallies, listMyVotes
-│   ├── ownerQueries.ts                             [NEW] super-admin-gated: listAllSessions, getSessionSummary, getAdminKeyForSession, bulkExport (action). All require SUPER_ADMIN_KEY env var.
+│   ├── ownerQueries.ts                             [NEW] owner-gated: listAllSessions, downloadSessionDocx, downloadAllDocxZip (action), deleteSession (mutation). All require OWNER_KEY env var.
 │   ├── ai/
 │   │   ├── generateCanvas.ts                       [NEW action] adapted from api/primitives-generate.js
 │   │   ├── chatRefine.ts                           [NEW action] adapted from api/chat.js (primitives branch only)
@@ -143,7 +267,7 @@ C:\Users\yonat\OneDrive\AI\Apps\Team Primitives\
 │   │   ├── AdminBoard.jsx                          [NEW] roster + raw starred + synthesize + clusters + export
 │   │   ├── Join.jsx                                [NEW] name entry
 │   │   ├── Participant.jsx                         [NEW] shell; dispatches by participant.phase
-│   │   ├── OwnerDashboard.jsx                      [NEW] super-admin cross-session dashboard; sortable table; bulk export
+│   │   ├── OwnerDashboard.jsx                      [NEW] owner cross-session dashboard; sortable table; per-row actions + Export all ZIP; Delete session
 │   │   └── NotFound.jsx                            [NEW]
 │   ├── components/
 │   │   ├── views/
@@ -221,8 +345,15 @@ sessions                      { code, functionName, teamSize?, industry?, adminK
                                deployment boundary.)
 
 participants                  { sessionId, name, slug, phase: "intake"|"canvas"|"locked",
-                                canvasGeneratedAt?, starsLockedAt?, createdAt }
+                                canvasGeneratedAt?, starsLockedAt?,
+                                lastActivityAt: number, createdAt }
                               indexes by_session, by_session_and_slug
+                              (NOTE: `lastActivityAt` is updated by every mutation
+                               this participant sends — joinSession, submitIntake,
+                               addIdea, updateIdea, deleteIdea, toggleStar,
+                               appendChatMessage, finalizeStars, castVote, removeVote.
+                               Used by admin roster to compute "idle for X min"
+                               and surface stuck participants.)
 
 intakeAnswers                 { sessionId, participantId, strengths, blockers, oneWish, updatedAt }
                               index by_participant
@@ -258,6 +389,7 @@ Key design choices:
 - **Latest synthesis wins** — admin can re-run, cluster view always shows the most recent.
 - **Voting is on ideas, not clusters.** Clusters are purely a display/organizing construct; the `votes` table references `ideaId` directly. Ranking output sorts ideas by vote count globally; cluster membership is shown as a badge/context, not as the grouping.
 - **Vote budget is session-scoped** (admin sets `votesPerParticipant` when opening the voting round). Mutation validates `countOfVotesByParticipant(sessionId, participantId) < votesPerParticipant` before inserting.
+- **Cascading deletes** from `deleteSession(sessionId)` (owner-only): in this order — votes (by_session), chatMessages (filter by sessionId), ideas (filter by sessionId), intakeAnswers (filter by sessionId), synthesis (by_session_ran), participants (by_session), then sessions itself. All in one mutation transaction. No soft-delete in MVP; deletion is irreversible by design.
 
 ### Ordering & tie-breaks (explicit rules)
 - **Vote view, ideas within a cluster:** alphabetical by `text` (ascending). Stable, avoids primacy bias in how ideas are presented to voters.
@@ -272,6 +404,60 @@ All three Convex actions (`generateCanvas`, `chatRefine`, `synthesize`) can fail
 - **`synthesize` failure:** `synthesis` row saved with `status: "error"` + error text. Admin board shows "Synthesis failed: ${message} — [Retry]" panel. No partial clusters persisted.
 
 No silent fallbacks. Every failure surfaces to the right user with a retry path.
+
+### Rate-limit handling (Anthropic 429s)
+
+Anthropic tier 1 = 50 RPM. A 10-person workshop joining simultaneously generates 10 concurrent canvas-gen calls in the first minute, plus chat turns layered on top. Real workshops WILL hit 429s without a strategy.
+
+**Server-side (Convex actions):**
+- All three LLM actions wrap the Anthropic fetch in retry-with-jitter on 429:
+  - 1st retry after `1s + random(0–500ms)`
+  - 2nd retry after `3s + random(0–1000ms)`
+  - 3rd retry after `8s + random(0–2000ms)`
+  - Give up after 3 retries; return error to client with code `RATE_LIMITED`
+- 5xx from Anthropic uses the same backoff (transient errors).
+- 4xx other than 429 (e.g., bad API key, content policy) → fail fast, no retry.
+
+**Client-side UX during retry:**
+- `generateCanvas` running >12s: change loading copy from `Generating your AI canvas…` to `Generating… (retrying due to high load)` after 12s. Don't show this earlier — most calls succeed in 6–10s and changing copy too early creates anxiety.
+- `chatRefine`: keep "Thinking…" bubble; if action fails after retries, show error toast.
+- `synthesize`: GeneratingIndicator continues; if it errors after retries, show retry panel on admin board.
+
+**Admin visibility:**
+- If 3+ rate-limit retries hit within 60s across the whole session, show a banner on admin board: `⚠️ API throttling. Some participants may see slower generation. Consider upgrading Anthropic tier.`
+- Token usage per session computed in `ownerQueries.ts` and displayed on owner dashboard (column or per-row drilldown — TBD in Phase G polish).
+
+**Pre-launch:** request Anthropic tier 2 before first real workshop. Tier 2 lifts to 1000 RPM and 80K input tokens/min — eliminates the throttling concern entirely for a 10-person workshop.
+
+### Export format spec (`exportTopIdeasDocx`)
+
+The primary post-vote deliverable. Structure:
+
+1. **Cover page**
+   - Title: `${functionName} — Team AI Priorities`
+   - Subtitle: `${participantCount} teammates voted on ${ideaCount} ideas`
+   - Date: workshop date (session.createdAt formatted as "April 25, 2026")
+   - Footer: `Generated by Team Primitives`
+
+2. **Top 3 priorities (highlighted block)**
+   - Heading: `Top 3 priorities`
+   - Each: large heading with rank + idea text, then small line `${voteCount} votes · ${contributorName} · ${clusterTitle}`
+
+3. **Full ranked list**
+   - Heading: `All ranked ideas`
+   - Numbered list, position 1–N
+   - Per row: `${ideaText}` (bold) — `${voteCount} votes` — `${contributorName}` — `${clusterTitle}` (italic)
+   - Ties shown with same rank number, sorted by `createdAt` asc as the tie-break
+
+4. **Methodology footer (small text)**
+   - `${participantCount} participants each starred 5–10 favorite ideas. ${totalStars} starred ideas were clustered by AI into ${clusterCount} themes. Each participant then voted with ${votesPerParticipant} votes (one per idea, one vote max per idea). This list is ranked by total votes; ties broken by which idea was contributed first.`
+
+Use the original's `docx` patterns from `src/utils/export.js → exportPrimitivesDocx` as the structural template — same heading styles, same brand-aligned color usage. Just different content.
+
+`exportSynthesisDocx` (the secondary "full board" export) follows the same cover + adds:
+- Synthesized clusters section (cluster title + summary + member ideas with attribution)
+- Raw breakdown by participant (per-participant section with their intake answers + their starred ideas)
+- Same methodology footer.
 
 ---
 
@@ -437,7 +623,10 @@ These come from the original app's hard-learned lessons — do NOT regress:
                                         — if synthesis ready: toggle to team board
                                         — if voting open: toggle to voting view
                                         — if voting completed: toggle to final ranked list
-/owner?k=:superKey                  → OwnerDashboard  (Phase G; invalid superKey → redirect /)
+/owner#k=:ownerKey                  → OwnerDashboard  (Phase G; invalid ownerKey → redirect /)
+                                       (KEY IN URL FRAGMENT, NOT QUERY STRING — fragments are
+                                        not sent in referrer headers or upstream server logs.
+                                        Parse via window.location.hash on mount.)
 /*                                  → NotFound
 ```
 
@@ -456,63 +645,66 @@ These come from the original app's hard-learned lessons — do NOT regress:
 
 **Phase B — single-participant happy path (~1 day):**
 6. `convex/sessions.ts` + `AdminCreate.jsx` → admin URL created, session row in dashboard
-7. `convex/participants.ts` + `Join.jsx` → participant joins, localStorage seeded
-8. Adapt `IntakeView.jsx` → 3 questions → `submitIntake` mutation → triggers `generateCanvas` action
-9. Port `generateCanvas.ts` action from `api/primitives-generate.js`; verify 6-category output in `ideas` table
-10. Adapt `PrimitivesView.jsx` → `CanvasView.jsx`; replace `dispatch` with `useCanvasDispatch` adapter; star/edit/delete/add all write to Convex
-11. Adapt `ChatDrawer.jsx`; port `chatRefine.ts`; verify per-category chat works
-12. `finalizeStars` mutation + submit button (5 ≤ stars ≤ 10)
-13. `MyBoardView.jsx` — read-only recap with personal export button (`exportParticipantDocx`)
+7. `convex/participants.ts` + `Join.jsx` → participant joins, localStorage seeded. Use Copy deck strings for all UI text.
+8. Adapt `IntakeView.jsx` → 3 questions → `submitIntake` mutation → triggers `generateCanvas` action. Use Copy deck for question labels, helper text, button copy, word-count chips.
+9. Port `generateCanvas.ts` action from `api/primitives-generate.js`; add 429/5xx retry-with-jitter wrapper (see "Rate-limit handling" section); verify 6-category output in `ideas` table.
+10. Adapt `PrimitivesView.jsx` → `CanvasView.jsx`; replace `dispatch` with `useCanvasDispatch` adapter; star/edit/delete/add all write to Convex. Use Copy deck strings for all UI text.
+11. Adapt `ChatDrawer.jsx`; port `chatRefine.ts` (with retry wrapper); verify per-category chat works. Preserve static-opener pattern from original (no LLM call on drawer open).
+12. `finalizeStars` mutation + submit button (5 ≤ stars ≤ 10) with Copy deck confirm-modal text.
+13. `MyBoardView.jsx` — read-only recap with personal export button (`exportParticipantDocx`). Use Copy deck for the four state-dependent subheaders (no synthesis / synthesis ready / voting open / voting closed).
+14. **Activity tracking:** every participant mutation (`joinSession`, `submitIntake`, `addIdea`, `updateIdea`, `deleteIdea`, `toggleStar`, `appendChatMessage`, `markChatIdeaAdded`, `finalizeStars`, future `castVote`/`removeVote`) writes `participants.lastActivityAt = now`. Implement as a small helper `bumpActivity(participantId)` called from each mutation.
 
 **Phase C — admin board + synthesis (~1 day, plus ~1 hour prompt iteration):**
-14. `AdminBoard.jsx` shell with `ShareLinkPanel`, `RosterPanel`, `RawStarredList`, `SynthesizeButton`
-15. `listParticipants` and `listRawStarred` queries
-16. `synthesize.ts` action + prompt — THIS IS THE ITERATION-HEAVY STEP; expect prompt tweaks
-17. `ClusterCard.jsx` renders clusters with title/summary/category badge/source count/attribution
-18. Wire participant `MyBoardView` to show team board toggle when `latestSynthesis.status === "ready"`
+15. `AdminBoard.jsx` shell with `ShareLinkPanel`, `RosterPanel`, `RawStarredList`, `SynthesizeButton`. Use Copy deck for headers, button text, empty states, bookmark banner.
+16. `listParticipants` query — return per-row `{ name, slug, phase, ideaCount, starCount, phaseEnteredAt, lastActivityAt }`. Compute "time in phase" + "idle for X min" client-side from these timestamps. Sort options: by phase | by name | by activity desc.
+17. `listRawStarred` query.
+18. `synthesize.ts` action + prompt (with retry wrapper) — THIS IS THE ITERATION-HEAVY STEP; expect prompt tweaks. Keep raw starred list visible to admin throughout as a safety net.
+19. `ClusterCard.jsx` renders clusters with title/summary/category badge/source count/attribution.
+20. Wire participant `MyBoardView` to show team board toggle when `latestSynthesis.status === "ready"`. Use Copy deck for the toggle tabs and state-dependent subheaders.
 
 **Phase D — voting round (~1 day):**
-19. Admin controls: `votesPerParticipant` input (number, default 3) + `openVoting` / `closeVoting` mutations
-20. `VoteView.jsx` (participant) — shows all starred ideas grouped visually by cluster (cluster title as section header, ideas as voteable cards underneath); vote budget counter at top; one-vote-per-idea checkbox/toggle
-21. `castVote` / `removeVote` mutations with server-side budget check (count < votesPerParticipant) and uniqueness check (no duplicate vote on same idea by same participant)
-22. Live admin view while voting open: tally per idea (admin-only visibility); participant view shows "voting in progress — results hidden until closed"
-23. On `closeVoting`: reveal ranked list to all participants; ideas sorted by vote count; cluster badge as metadata on each idea
-24. `RankedIdeasView.jsx` — shared display component used by admin AND locked participants post-vote
+21. Admin controls: `votesPerParticipant` input (number, default 3) + `openVoting` / `closeVoting` mutations
+22. `VoteView.jsx` (participant) — shows all starred ideas grouped visually by cluster (cluster title as section header, ideas as voteable cards underneath); vote budget counter at top; one-vote-per-idea checkbox/toggle. Use Copy deck for header, sticky-budget chip, footer.
+23. `castVote` / `removeVote` mutations with server-side budget check (count < votesPerParticipant) and uniqueness check (no duplicate vote on same idea by same participant). Both call `bumpActivity(participantId)`.
+24. Live admin view while voting open: tally per idea (admin-only visibility); participant view shows "voting in progress — results hidden until closed"
+25. On `closeVoting`: reveal ranked list to all participants; ideas sorted by vote count; cluster badge as metadata on each idea
+26. `RankedIdeasView.jsx` — shared display component used by admin AND locked participants post-vote. Use Copy deck for header, subheader, per-row format, tie note.
 
 **Phase E — export + polish (~1 day):**
-25. `exportTopIdeasDocx` — primary deliverable; ranked ideas list with vote count + attribution + cluster badge
-26. `exportSynthesisDocx` — secondary/full-board export (clusters + raw breakdown per participant); keep as optional download
-27. `exportParticipantDocx` — personal board export (already built in Phase B step 13)
-28. Empty states (admin board before anyone joins, "no stars yet" synthesize disabled, "no votes yet" ranking hidden, etc.)
-29. Admin "Close session" toggle
-30. "Not you? Reset" link on participant to clear localStorage entry
-31. Write new CLAUDE.md for the repo
+27. `exportTopIdeasDocx` — primary deliverable; follow the "Export format spec" section above for cover/top-3/full-list/methodology structure
+28. `exportSynthesisDocx` — secondary/full-board export (clusters + raw breakdown per participant); keep as optional download
+29. `exportParticipantDocx` — personal board export (already built in Phase B step 13)
+30. Empty states (admin board before anyone joins, "no stars yet" synthesize disabled, "no votes yet" ranking hidden, etc.) — use Copy deck strings throughout
+31. Admin "Close session" toggle
+32. "Not you? Reset" link on participant to clear localStorage entry (Copy deck has the exact wording)
+33. Write new CLAUDE.md for the repo
 
 **Phase F — Workshop Simulation harness (~1 day):**
-32. Set up a second Convex deployment for staging (`npx convex dev --configure team-primitives-staging`). Simulator targets staging; prod is never polluted by test data. Deployment boundary is the only separator — no `origin` tag on sessions.
-33. Build `scripts/simulate-workshop.mjs` — orchestrator. See file structure + behavior below.
-34. Build `scripts/personas/*.json` — 10 function briefs (HR, Product Marketing, Sales, Finance, Engineering, Legal, Customer Success, Ops, Marketing, People Ops), each with 5–8 persona archetypes (sub-role + voice sample).
-35. Build `scripts/lib/persona-llm.mjs` — wraps Anthropic SDK; given a function brief + persona archetype, generates persona-appropriate intake answers and chat messages. This is the "second LLM" that roleplays each participant.
-36. Build `scripts/lib/convex-client.mjs` — thin wrapper around Convex SDK for all mutations/actions needed by the simulator.
-37. Build `scripts/lib/playwright-spotcheck.mjs` (optional, uses Playwright MCP if available) — drives ONE real browser through the participant flow in parallel with the Node script, catches UI race conditions the API-level simulator can't see.
-38. Report writer: creates `reports/YYYY-MM-DD-<run-id>/index.md` + per-session `data.json` + both `.docx` exports + `run-summary.md` (timing, token usage, errors).
-39. Add npm scripts: `simulate:single` (1 session × 6 personas, ~$2, ~2 min), `simulate` (3 × 5, ~$8, ~5 min), `simulate:full` (10 × 6, ~$20, ~10–15 min).
+34. Set up a second Convex deployment for staging (`npx convex dev --configure team-primitives-staging`). Simulator targets staging; prod is never polluted by test data. Deployment boundary is the only separator — no `origin` tag on sessions.
+35. Build `scripts/simulate-workshop.mjs` — orchestrator. See file structure + behavior below.
+36. Build `scripts/personas/*.json` — 10 function briefs (HR, Product Marketing, Sales, Finance, Engineering, Legal, Customer Success, Ops, Marketing, People Ops), each with 5–8 persona archetypes (sub-role + voice sample).
+37. Build `scripts/lib/persona-llm.mjs` — wraps Anthropic SDK; given a function brief + persona archetype, generates persona-appropriate intake answers and chat messages. This is the "second LLM" that roleplays each participant.
+38. Build `scripts/lib/convex-client.mjs` — thin wrapper around Convex SDK for all mutations/actions needed by the simulator.
+39. Build `scripts/lib/playwright-spotcheck.mjs` (optional, uses Playwright MCP if available) — drives ONE real browser through the participant flow in parallel with the Node script, catches UI race conditions the API-level simulator can't see.
+40. Report writer: creates `reports/YYYY-MM-DD-<run-id>/index.md` + per-session `data.json` + both `.docx` exports + `run-summary.md` (timing, token usage, errors).
+41. Add npm scripts: `simulate:single` (1 session × 6 personas, ~$2, ~2 min), `simulate` (3 × 5, ~$8, ~5 min), `simulate:full` (10 × 6, ~$20, ~10–15 min).
 
 **Phase G — Owner dashboard (~4 hours, slimmed):**
 
 Operating model: the user (tool owner) creates sessions and hands admin URLs to group leads who run the workshops. Once handed off, the user needs a way to see what happened across all sessions without asking for each admin URL back. This is a simple "my sessions" index — NOT a new permission level.
 
-40. Add `OWNER_KEY` env var to Convex (`npx convex env set OWNER_KEY <32-char-random>`). Never exposed to client.
-41. Add Convex queries/action in `convex/ownerQueries.ts` (all gated by `ownerKey` argument compared to env):
+42. Add `OWNER_KEY` env var to Convex (`npx convex env set OWNER_KEY <32-char-random>`). Never exposed to client. Generate with `openssl rand -hex 16` or equivalent.
+43. Add Convex queries/mutations/action in `convex/ownerQueries.ts` (all gated by `ownerKey` argument compared to env):
     - `listAllSessions(ownerKey)` → rows of `{ sessionId, code, functionName, createdAt, participantCount, ideaCount, starCount, votingStatus, topVotedIdea: { text, voteCount }?, adminUrl }`
     - `downloadSessionDocx(sessionId, ownerKey)` → returns top-ideas.docx bytes
     - `downloadAllDocxZip(ownerKey)` → Convex action: fetches all sessions, generates docx per session, zips with `jszip`, returns download URL
-42. New route `/owner?k=:ownerKey` → `OwnerDashboard.jsx`. On mount, calls `listAllSessions(k)`; invalid key → redirect `/`.
-43. Single sortable table — columns: Function | Created | Participants | Ideas | Votes | Top voted idea | Actions. Sort click on any column header. No filter toggles, no date pickers. Default sort: createdAt desc.
-44. Actions column per row: `[Open admin]` (new tab, deep-link to that session's admin URL using the embedded adminKey) | `[Download]` (fetches that session's top-ideas.docx).
-45. Top of table: `[Export all as ZIP]` button — calls `downloadAllDocxZip`. For <100 sessions, sync response is fine; larger scale → defer to an email later (not MVP).
-46. Bookmark prompt on first load: "Bookmark this URL — it's the only way back to your sessions." Auto-copy to clipboard on first load.
-47. Known limitation to document: owner can read all session data. Acceptable for single-tenant Yonatan-as-owner model; would need consent flow if productized.
+    - `deleteSession(sessionId, ownerKey)` → mutation: cascades through votes, chatMessages, ideas, intakeAnswers, synthesis, participants, then sessions. Returns count of deleted rows for confirmation toast.
+44. New route `/owner#k=:ownerKey` → `OwnerDashboard.jsx`. **Key lives in URL fragment, NOT query string.** Parse via `window.location.hash` on mount; strip from URL bar after parsing (so screenshots don't expose key). On mount, calls `listAllSessions(k)`; invalid key → redirect `/`.
+45. Single sortable table — columns: Function | Created | Participants | Ideas | Votes | Top voted idea | Actions. Sort click on any column header. No filter toggles, no date pickers. Default sort: createdAt desc.
+46. Actions column per row: `[Open admin]` (new tab, deep-link to that session's admin URL using the embedded adminKey) | `[Download]` (fetches that session's top-ideas.docx) | `[Delete]` (opens ConfirmModal with explicit confirmation copy → calls `deleteSession`).
+47. Top of table: `[Export all as ZIP]` button — calls `downloadAllDocxZip`. For <100 sessions, sync response is fine; larger scale → defer to an email later (not MVP).
+48. Bookmark prompt on first load: "Bookmark this URL — it's the only way back to your sessions." Auto-copy to clipboard on first load.
+49. Known limitation to document: owner can read and delete all session data. Acceptable for single-tenant Yonatan-as-owner model; would need consent flow + role separation if productized.
 
 ---
 
@@ -561,26 +753,30 @@ reports/                               # gitignored; per-run outputs
 
 ## Owner dashboard — sketch
 
-Route: `/owner?k=:ownerKey`. Staging and prod run on separate Convex deployments, so sim data is physically separated from real workshops (no filter needed).
+Route: `/owner#k=:ownerKey` (fragment-based, see Security notes). Staging and prod run on separate Convex deployments, so sim data is physically separated from real workshops (no filter needed).
 
 Single sortable table:
 ```
-| Function         | Created       | Parts | Ideas | Votes | Top voted idea                      | Actions              |
-|------------------|---------------|-------|-------|-------|-------------------------------------|----------------------|
-| HR               | 2026-04-24    |   6   |  47   |  12   | Draft rejection emails from ATS...  | [Open] [Download]    |
-| Product Marketing| 2026-04-22    |   5   |  38   |  15   | Auto-generate campaign one-pagers...| [Open] [Download]    |
+| Function         | Created       | Parts | Ideas | Votes | Top voted idea                      | Actions                       |
+|------------------|---------------|-------|-------|-------|-------------------------------------|-------------------------------|
+| HR               | 2026-04-25    |   6   |  47   |  12   | Draft rejection emails from ATS...  | [Open] [Download] [Delete]    |
+| Product Marketing| 2026-04-22    |   5   |  38   |  15   | Auto-generate campaign one-pagers...| [Open] [Download] [Delete]    |
 ```
 
 Above the table: `[Export all as ZIP]` button (downloads docx per session as a single zip).
 
-Row "[Open]" → new tab to `/s/:code/admin?k=<that session's adminKey>` (owner query embeds it). Same per-session admin board as today; admin duties (synthesize/open voting/close voting) still live there. Owner dashboard is a read-through index, not a new admin UI.
+Row "[Open]" → new tab to `/s/:code/admin?k=<that session's adminKey>` (owner query embeds it). Same per-session admin board as today; admin duties (synthesize/open voting/close voting) still live there. Owner dashboard is a read-through index + delete tool, not a new admin UI.
 
 Row "[Download]" → downloads that session's `top-ideas.docx` directly.
 
-Sessions accumulate forever in MVP. If you ever hit hundreds of sessions, add an "Archive" action that hides rows from the default view (not required at MVP scale).
+Row "[Delete]" → ConfirmModal: "Delete session ${functionName} (${code})? This permanently deletes ${N} participants' data and cannot be undone." Confirms → cascading delete via `deleteSession` mutation. Toast: "Session deleted (${count} rows)."
+
+Sessions accumulate forever in MVP unless explicitly deleted. If you ever hit hundreds of sessions, add an "Archive" action that hides rows from the default view (not required at MVP scale).
 
 **Security notes:**
-- `OWNER_KEY` lives in Convex env, never sent to client. Client passes the URL-param key to every ownerQueries call; the Convex function does the compare. If the key is wrong, the query returns null and the route redirects.
+- `OWNER_KEY` lives in Convex env, never sent to client.
+- **URL fragment, not query string.** Routes use `/owner#k=...` — fragments are NOT included in the HTTP request to the server, NOT logged in server access logs, NOT sent in `Referer` headers when clicking outbound links from the dashboard. This dramatically reduces leak surface vs. `?k=...`.
+- Client parses key from `window.location.hash` on mount, then strips it from the URL bar (so screenshots of the dashboard don't expose the key). Stores in React state only; passes to every ownerQueries call.
 - Per-session admin keys embedded in the dashboard's deep-links are fine to show to the owner — they're just navigation aids. The owner already has authority to see these via their OWNER_KEY.
 
 ---
@@ -645,14 +841,21 @@ Four browser windows (use incognito to simulate different users):
 17. Re-run same simulation twice; diff the outputs. Expect: some variation in LLM outputs but overall themes consistent. If outputs differ dramatically run-to-run, that's a prompt-determinism red flag to address.
 
 ### Phase G verification (owner dashboard)
-18. Open `/owner?k=<OWNER_KEY>` on the prod deployment — table shows real sessions created during Phase B-E testing (sim data lives on staging deployment, physically separated).
-19. Invalid key (`/owner?k=wrong`) → redirect home. No data leaked to client.
+18. Open `/owner#k=<OWNER_KEY>` on the prod deployment — table shows real sessions created during Phase B-E testing (sim data lives on staging deployment, physically separated). Verify URL fragment is stripped from address bar after mount.
+19. Invalid key (`/owner#k=wrong`) → redirect home. No data leaked to client.
 20. Click "Open admin" on a session row → new tab opens that session's admin board (owner query returned the embedded adminKey).
 21. Sort table by Votes descending — top-voted ideas surface across all sessions.
-22. Click "Download" on one row → downloads that session's `top-ideas.docx`.
+22. Click "Download" on one row → downloads that session's `top-ideas.docx`. Open in Word: verify cover page, top-3 highlighted block, full ranked list, methodology footer all present per the export format spec.
 23. Click "Export all as ZIP" → downloads a ZIP containing one `.docx` per session.
-24. Verify `OWNER_KEY` is never visible in client bundle (`grep` the Vite build output — 0 hits on the actual secret value).
-25. Bookmark prompt appears on first load; URL auto-copied to clipboard.
+24. Click "Delete" on a test session → ConfirmModal shows expected copy → confirm → toast appears with deleted-row count → row vanishes from table → re-open admin URL of deleted session: 404.
+25. Verify `OWNER_KEY` is never visible in client bundle (`grep` the Vite build output — 0 hits on the actual secret value). Verify URL fragment is NOT in browser history (`history.replaceState` was called to remove it).
+26. Bookmark prompt appears on first load; URL auto-copied to clipboard.
+
+### Live admin view + microcopy verification (cross-cutting)
+27. **Activity tracking:** during a live workshop test, leave one participant idle (don't type anything for 2 min). Admin roster shows "idle 2 min" with yellow indicator next to that participant. Have them resume → indicator clears within 1s.
+28. **Time-in-phase:** participant in intake for 5 min → admin roster shows "5 min in Intake". After they advance to canvas → roster shows "0 min in Canvas" → grows over time.
+29. **Microcopy spot-check:** walk the participant flow as a non-developer (or have someone unfamiliar with the project try) and verify every screen has clear copy from the Copy deck — no Lorem ipsum, no leftover "[TODO]" placeholders, no "undefined" appearing in interpolations. Specifically check the four MyBoardView state-dependent subheaders.
+30. **Rate-limit retry:** stub the Anthropic SDK locally to return 429 on first 2 calls, success on 3rd. Run a generateCanvas and verify it succeeds after retries (~4s additional latency); copy on the participant screen flips to "retrying due to high load" after 12s.
 
 ---
 
@@ -672,8 +875,8 @@ Highest-leverage files to build carefully; the rest cascades from these:
 - `C:\Users\yonat\OneDrive\AI\Apps\Team Primitives\src\utils\export.js` (adapt: add `exportTopIdeasDocx` as primary post-vote artifact)
 - `C:\Users\yonat\OneDrive\AI\Apps\Team Primitives\scripts\simulate-workshop.mjs` (NEW — Phase F orchestrator)
 - `C:\Users\yonat\OneDrive\AI\Apps\Team Primitives\scripts\lib\persona-llm.mjs` (NEW — Anthropic-driven persona responses)
-- `C:\Users\yonat\OneDrive\AI\Apps\Team Primitives\src\routes\OwnerDashboard.jsx` (NEW — Phase G super-admin dashboard)
-- `C:\Users\yonat\OneDrive\AI\Apps\Team Primitives\convex\ownerQueries.ts` (NEW — super-admin-gated queries + bulk export action)
+- `C:\Users\yonat\OneDrive\AI\Apps\Team Primitives\src\routes\OwnerDashboard.jsx` (NEW — Phase G owner dashboard)
+- `C:\Users\yonat\OneDrive\AI\Apps\Team Primitives\convex\ownerQueries.ts` (NEW — owner-gated queries + bulk export action + deleteSession mutation)
 
 ---
 
