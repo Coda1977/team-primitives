@@ -109,6 +109,117 @@ export const appendChatInternal = internalMutation({
   },
 });
 
+// Used by the synthesize action: validates adminKey, returns session.
+export const getSessionByAdminKeyInternal = internalQuery({
+  args: { sessionId: v.id("sessions"), adminKey: v.string() },
+  handler: async (ctx, args) => {
+    const session = await ctx.db.get(args.sessionId);
+    if (!session) return null;
+    if (session.adminKey !== args.adminKey) return null;
+    return session;
+  },
+});
+
+// Used by the synthesize action: returns all starred ideas in the session
+// with participant names, for prompt assembly + verbatim source-mapping back
+// to ideaIds.
+export const listStarredForSynthesisInternal = internalQuery({
+  args: { sessionId: v.id("sessions") },
+  handler: async (ctx, args) => {
+    const starred = await ctx.db
+      .query("ideas")
+      .withIndex("by_session_starred", (q) =>
+        q.eq("sessionId", args.sessionId).eq("starred", true)
+      )
+      .collect();
+
+    const participantCache = new Map();
+    const rows = [];
+    for (const idea of starred) {
+      let participantName = participantCache.get(idea.participantId);
+      if (!participantName) {
+        const p = await ctx.db.get(idea.participantId);
+        participantName = p?.name ?? "(unknown)";
+        participantCache.set(idea.participantId, participantName);
+      }
+      rows.push({
+        _id: idea._id,
+        text: idea.text,
+        categoryId: idea.categoryId,
+        participantId: idea.participantId,
+        participantName,
+      });
+    }
+    return rows;
+  },
+});
+
+// Used by the synthesize action: counts distinct locked participants in
+// the session (used to gate Synthesize >=2).
+export const countLockedParticipantsInternal = internalQuery({
+  args: { sessionId: v.id("sessions") },
+  handler: async (ctx, args) => {
+    const participants = await ctx.db
+      .query("participants")
+      .withIndex("by_session", (q) => q.eq("sessionId", args.sessionId))
+      .collect();
+    return participants.filter((p) => p.phase === "locked").length;
+  },
+});
+
+// Inserts a "running" synthesis row to lock the slot during the LLM call,
+// returns its _id. The action will patch it later with the parsed clusters
+// (status: ready) or an error (status: error).
+export const startSynthesisInternal = internalMutation({
+  args: { sessionId: v.id("sessions") },
+  handler: async (ctx, args) => {
+    const id = await ctx.db.insert("synthesis", {
+      sessionId: args.sessionId,
+      status: "running",
+      ranAt: Date.now(),
+      clusters: [],
+    });
+    return id;
+  },
+});
+
+export const finishSynthesisInternal = internalMutation({
+  args: {
+    synthesisId: v.id("synthesis"),
+    clusters: v.array(
+      v.object({
+        id: v.string(),
+        title: v.string(),
+        summary: v.string(),
+        categoryId: v.string(),
+        memberIdeaIds: v.array(v.id("ideas")),
+        participantIds: v.array(v.id("participants")),
+      })
+    ),
+  },
+  handler: async (ctx, args) => {
+    await ctx.db.patch(args.synthesisId, {
+      status: "ready",
+      clusters: args.clusters,
+      ranAt: Date.now(),
+    });
+  },
+});
+
+export const failSynthesisInternal = internalMutation({
+  args: {
+    synthesisId: v.id("synthesis"),
+    error: v.string(),
+  },
+  handler: async (ctx, args) => {
+    await ctx.db.patch(args.synthesisId, {
+      status: "error",
+      error: args.error,
+      ranAt: Date.now(),
+    });
+  },
+});
+
 // Invoked by the generateCanvas action after it parses the LLM response.
 // Inserts AI-generated ideas in batch + advances participant phase to "canvas".
 export const writeGeneratedIdeas = internalMutation({
