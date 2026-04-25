@@ -79,49 +79,81 @@ export default function VoteView({ session, participant }) {
     <main className="min-h-screen bg-white text-black">
       {/* Sticky budget chip */}
       <div
-        className="sticky top-0 z-40 px-4 py-3 text-center text-xs font-bold uppercase tracking-wider"
+        className="sticky top-0 z-40 px-4 py-4 text-center text-xs font-bold uppercase tracking-[0.28em]"
         style={{ background: C.black, color: C.white }}
       >
         {allUsed ? (
           <>
-            <span className="tabular-nums">{used}/{budget}</span> — all votes in ✓
+            <span className="tabular-nums">{used}/{budget}</span>
+            <span className="mx-2" style={{ color: "#666" }}>·</span>
+            All votes in ✓
           </>
         ) : (
           <>
-            <span className="tabular-nums">{used}/{budget}</span> votes used
+            <span className="tabular-nums">{used}/{budget}</span>
+            <span className="mx-2" style={{ color: "#666" }}>·</span>
+            Votes used
           </>
         )}
       </div>
 
-      <div className="max-w-3xl mx-auto px-6 py-6">
-        <h1 className="text-2xl sm:text-3xl font-bold tracking-tight mb-2">
-          Vote for your team's top ideas
-        </h1>
-        <p className="text-sm text-neutral-700 mb-8 leading-relaxed">
-          You have <strong>{budget} {budget === 1 ? "vote" : "votes"}</strong>. One vote per idea. Pick the ideas you most want to see <strong>{session.functionName}</strong> actually do.
-        </p>
+      <div className="max-w-3xl mx-auto px-6 pt-12 pb-16">
+        <div className="mb-12">
+          <p className="text-[11px] font-bold uppercase tracking-[0.32em] text-neutral-500 mb-4">
+            Voting · {budget} {budget === 1 ? "vote" : "votes"} per person
+          </p>
+          <h1
+            className="font-bold leading-[1.05] tracking-tight mb-5"
+            style={{
+              fontSize: "clamp(2rem, 4vw, 2.75rem)",
+              letterSpacing: "-0.025em",
+            }}
+          >
+            Vote for your team's top ideas
+          </h1>
+          <p
+            className="leading-relaxed max-w-xl"
+            style={{
+              fontSize: "1.0625rem",
+              color: C.darkGray,
+            }}
+          >
+            One vote per idea. Pick the ideas you most want to see{" "}
+            <strong style={{ color: C.black }}>{session.functionName}</strong>{" "}
+            actually do.
+          </p>
+        </div>
 
-        <div className="space-y-10">
+        <hr className="mb-10 border-0 h-px" style={{ background: C.lightGray }} />
+
+        <div className="space-y-12">
           {filledCategories.map((cat) => {
             const ideas = ideasByCategory[cat.id];
             return (
               <section key={cat.id}>
                 <div
-                  className="sticky top-12 z-30 -mx-6 px-6 py-2 flex items-center gap-2 backdrop-blur"
-                  style={{ background: "rgba(255,255,255,0.95)", borderBottom: `1px solid ${C.lightGray}` }}
+                  className="sticky z-30 -mx-6 px-6 py-3 flex items-center gap-3 backdrop-blur"
+                  style={{
+                    top: "3.25rem",
+                    background: "rgba(255,255,255,0.92)",
+                    borderBottom: `1px solid ${C.lightGray}`,
+                  }}
                 >
                   <span
                     className="inline-block w-2 h-2 rounded-full flex-shrink-0"
                     style={{ background: cat.color }}
                   />
-                  <h2 className="text-sm font-bold tracking-tight uppercase">
+                  <h2 className="text-[11px] font-bold tracking-[0.28em] uppercase">
                     {cat.title}
                   </h2>
-                  <span className="text-xs text-neutral-500 ml-auto">
-                    {ideas.length}
+                  <span
+                    className="text-[10px] uppercase tracking-[0.18em] tabular-nums ml-auto"
+                    style={{ color: C.gray500 }}
+                  >
+                    {ideas.length} {ideas.length === 1 ? "idea" : "ideas"}
                   </span>
                 </div>
-                <div className="space-y-3 mt-3">
+                <div className="space-y-3 mt-5">
                   {ideas.map((idea) => {
                     const anchorId = idea.memberIdeaIds[0];
                     const voted = myVoteSet.has(anchorId);
@@ -145,7 +177,10 @@ export default function VoteView({ session, participant }) {
           })}
         </div>
 
-        <p className="text-xs italic text-neutral-500 mt-12 mb-6">
+        <p
+          className="text-xs italic mt-16 mb-4"
+          style={{ color: C.gray500 }}
+        >
           Votes remain hidden from the team until your admin closes voting.
         </p>
       </div>

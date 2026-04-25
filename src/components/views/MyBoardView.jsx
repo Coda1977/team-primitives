@@ -167,27 +167,45 @@ function TabBar({ tabs, activeTab, onChange, session, participant }) {
   return (
     <div className="max-w-3xl mx-auto">
       <header
-        className="flex items-center justify-between text-xs text-neutral-500 border-b pb-3 mb-4"
+        className="flex items-center justify-between border-b pb-3 mb-6"
         style={{ borderColor: C.lightGray }}
       >
-        <span>
-          {session.functionName} · {participant.name}
-        </span>
-        <span aria-label="online" title="online">●</span>
+        <div className="flex items-center gap-3 text-xs">
+          <span
+            className="inline-block w-1 h-4"
+            style={{ background: C.red }}
+          />
+          <span
+            className="uppercase tracking-[0.28em] font-bold"
+            style={{ color: C.darkGray }}
+          >
+            {session.functionName}
+          </span>
+          <span style={{ color: C.lightGray }}>·</span>
+          <span style={{ color: C.darkGray }}>{participant.name}</span>
+        </div>
+        <span
+          className="inline-block w-1.5 h-1.5 rounded-full"
+          style={{ background: C.electricBlue }}
+          aria-label="online"
+          title="online"
+        />
       </header>
       {tabs.length > 1 && (
         <nav
-          className="flex gap-1 mb-6 border-b -mx-2 sm:mx-0 overflow-x-auto"
+          className="flex gap-6 mb-8 border-b overflow-x-auto"
           style={{ borderColor: C.lightGray }}
         >
           {tabs.map((tab) => (
             <button
               key={tab.id}
               onClick={() => onChange(tab.id)}
-              className="px-4 py-3 text-xs font-semibold uppercase tracking-wider whitespace-nowrap"
+              className="py-3 text-[11px] font-bold uppercase tracking-[0.22em] whitespace-nowrap transition-colors"
               style={{
                 color: activeTab === tab.id ? C.black : C.gray500,
-                borderBottom: `2px solid ${activeTab === tab.id ? C.red : "transparent"}`,
+                borderBottom: `2px solid ${
+                  activeTab === tab.id ? C.red : "transparent"
+                }`,
                 marginBottom: -1,
               }}
             >

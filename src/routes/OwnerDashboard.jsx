@@ -74,27 +74,90 @@ export default function OwnerDashboard() {
   return <DashboardInner ownerKey={ownerKey} sessions={sessions} />;
 }
 
+const FADE_KEYFRAMES = `
+  @keyframes ownerReveal {
+    0% { opacity: 0; transform: translateY(16px); }
+    100% { opacity: 1; transform: translateY(0); }
+  }
+`;
+
 function DashboardInner({ ownerKey, sessions }) {
   const [creating, setCreating] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState(null); // session row to confirm delete
 
+  const totalSessions = sessions.length;
+  const totalParticipants = sessions.reduce((s, x) => s + x.participantCount, 0);
+  const totalIdeas = sessions.reduce((s, x) => s + x.ideaCount, 0);
+
   return (
     <main className="min-h-screen bg-white text-black">
-      <div className="max-w-7xl mx-auto px-6 py-10">
-        <header className="flex items-center justify-between mb-8 pb-6 border-b" style={{ borderColor: C.lightGray }}>
-          <div>
-            <h1 className="text-3xl font-bold tracking-tight">Team Primitives</h1>
-            <p className="text-sm text-neutral-600 mt-1">
-              {sessions.length} workshop{sessions.length === 1 ? "" : "s"} in your library
-            </p>
+      <style>{FADE_KEYFRAMES}</style>
+      <div className="max-w-[1400px] mx-auto px-8 lg:px-12 py-14">
+        {/* Editorial header */}
+        <header
+          className="mb-16"
+          style={{
+            opacity: 0,
+            animation: `ownerReveal 700ms ease-out 0ms forwards`,
+          }}
+        >
+          <div className="flex items-end justify-between gap-6 flex-wrap mb-10">
+            <div>
+              <div className="flex items-center gap-3 mb-5">
+                <span
+                  className="inline-block w-1 h-5"
+                  style={{ background: C.red }}
+                />
+                <span className="text-[11px] font-bold uppercase tracking-[0.32em] text-neutral-500">
+                  Owner library
+                </span>
+              </div>
+              <h1
+                className="font-bold leading-[1] tracking-tight"
+                style={{
+                  fontSize: "clamp(2.75rem, 5vw, 4rem)",
+                  letterSpacing: "-0.03em",
+                }}
+              >
+                Team Primitives
+              </h1>
+              <div
+                className="mt-5 flex items-baseline gap-6 flex-wrap text-sm"
+                style={{ color: C.darkGray }}
+              >
+                <span>
+                  <span className="font-bold text-black tabular-nums">{totalSessions}</span>{" "}
+                  {totalSessions === 1 ? "workshop" : "workshops"}
+                </span>
+                {totalParticipants > 0 && (
+                  <>
+                    <span style={{ color: C.lightGray }}>·</span>
+                    <span>
+                      <span className="font-bold text-black tabular-nums">{totalParticipants}</span>{" "}
+                      {totalParticipants === 1 ? "participant" : "participants"}
+                    </span>
+                  </>
+                )}
+                {totalIdeas > 0 && (
+                  <>
+                    <span style={{ color: C.lightGray }}>·</span>
+                    <span>
+                      <span className="font-bold text-black tabular-nums">{totalIdeas}</span>{" "}
+                      ideas total
+                    </span>
+                  </>
+                )}
+              </div>
+            </div>
+            <button
+              onClick={() => setCreating(true)}
+              className="px-6 py-3.5 text-xs font-semibold uppercase tracking-[0.22em] inline-flex items-center gap-2"
+              style={{ background: C.red, color: C.white }}
+            >
+              <span aria-hidden="true">+</span> New workshop
+            </button>
           </div>
-          <button
-            onClick={() => setCreating(true)}
-            className="px-5 py-3 text-sm font-semibold uppercase tracking-wider"
-            style={{ background: C.red, color: C.white }}
-          >
-            + New workshop
-          </button>
+          <hr className="border-0 h-px" style={{ background: C.lightGray }} />
         </header>
 
         {sessions.length === 0 ? (
@@ -127,14 +190,32 @@ function DashboardInner({ ownerKey, sessions }) {
 
 function EmptyState({ onCreate }) {
   return (
-    <div className="border-2 border-dashed py-16 px-6 text-center" style={{ borderColor: C.lightGray }}>
-      <h2 className="text-2xl font-bold tracking-tight mb-2">No workshops yet</h2>
-      <p className="text-sm text-neutral-600 mb-6 max-w-md mx-auto">
-        Create your first workshop. You'll get an admin URL to bookmark and a participant URL to share with your team.
+    <div
+      className="py-24 px-6 text-center"
+      style={{
+        opacity: 0,
+        animation: `ownerReveal 700ms ease-out 200ms forwards`,
+      }}
+    >
+      <p className="text-[11px] font-bold uppercase tracking-[0.32em] text-neutral-500 mb-5">
+        Empty library
+      </p>
+      <h2
+        className="font-bold tracking-tight mb-5"
+        style={{ fontSize: "clamp(1.75rem, 3vw, 2.25rem)", letterSpacing: "-0.02em" }}
+      >
+        No workshops yet
+      </h2>
+      <p
+        className="leading-relaxed mb-8 max-w-md mx-auto"
+        style={{ color: C.darkGray, fontSize: "1rem" }}
+      >
+        Create your first workshop. You'll get an admin URL to bookmark and a
+        participant URL to share with your team.
       </p>
       <button
         onClick={onCreate}
-        className="px-5 py-3 text-sm font-semibold uppercase tracking-wider"
+        className="px-6 py-3.5 text-xs font-semibold uppercase tracking-[0.22em]"
         style={{ background: C.red, color: C.white }}
       >
         + Create workshop
@@ -145,22 +226,33 @@ function EmptyState({ onCreate }) {
 
 function SessionsTable({ sessions, onDelete }) {
   return (
-    <div className="overflow-x-auto">
-      <table className="w-full text-sm border-collapse">
+    <div
+      className="overflow-x-auto"
+      style={{
+        opacity: 0,
+        animation: `ownerReveal 700ms ease-out 200ms forwards`,
+      }}
+    >
+      <table className="w-full border-collapse">
         <thead>
-          <tr className="text-left border-b" style={{ borderColor: C.lightGray }}>
+          <tr className="text-left border-b" style={{ borderColor: C.darkGray }}>
             <Th>Function</Th>
             <Th>Created</Th>
             <Th align="right">Participants</Th>
             <Th align="right">Ideas</Th>
             <Th align="right">Votes</Th>
             <Th>Top voted idea</Th>
-            <Th align="right">Actions</Th>
+            <Th align="right">&nbsp;</Th>
           </tr>
         </thead>
         <tbody>
-          {sessions.map((s) => (
-            <SessionRow key={s._id} session={s} onDelete={() => onDelete(s)} />
+          {sessions.map((s, idx) => (
+            <SessionRow
+              key={s._id}
+              session={s}
+              onDelete={() => onDelete(s)}
+              delay={300 + idx * 60}
+            />
           ))}
         </tbody>
       </table>
@@ -171,7 +263,7 @@ function SessionsTable({ sessions, onDelete }) {
 function Th({ children, align = "left" }) {
   return (
     <th
-      className="px-3 py-3 text-xs font-bold uppercase tracking-wider text-neutral-600"
+      className="px-4 py-4 text-[10px] font-bold uppercase tracking-[0.22em] text-neutral-600"
       style={{ textAlign: align }}
     >
       {children}
@@ -179,45 +271,78 @@ function Th({ children, align = "left" }) {
   );
 }
 
-function SessionRow({ session, onDelete }) {
+function SessionRow({ session, onDelete, delay = 0 }) {
   const adminUrl = `${window.location.origin}${session.adminUrl}`;
   const created = new Date(session.createdAt).toISOString().slice(0, 10);
   const top = session.topVotedIdea;
 
   return (
-    <tr className="border-b hover:bg-neutral-50" style={{ borderColor: C.lightGray }}>
-      <td className="px-3 py-4">
-        <div className="font-bold">{session.functionName}</div>
-        <div className="text-xs text-neutral-500 font-mono mt-1">{session.code}</div>
+    <tr
+      className="border-b group transition-colors hover:bg-neutral-50"
+      style={{
+        borderColor: C.lightGray,
+        opacity: 0,
+        animation: `ownerReveal 600ms ease-out ${delay}ms forwards`,
+      }}
+    >
+      <td className="px-4 py-6 align-top">
+        <div className="text-base font-bold tracking-tight" style={{ letterSpacing: "-0.005em" }}>
+          {session.functionName}
+        </div>
+        <div className="text-[11px] mt-1 font-mono uppercase tracking-wider" style={{ color: C.gray500 }}>
+          {session.code}
+        </div>
       </td>
-      <td className="px-3 py-4 text-neutral-700">{created}</td>
-      <td className="px-3 py-4 text-right tabular-nums">{session.participantCount}</td>
-      <td className="px-3 py-4 text-right tabular-nums">{session.ideaCount}</td>
-      <td className="px-3 py-4 text-right tabular-nums">{session.voteCount}</td>
-      <td className="px-3 py-4 text-neutral-700 max-w-md">
+      <td className="px-4 py-6 text-sm align-top tabular-nums" style={{ color: C.darkGray }}>
+        {created}
+      </td>
+      <td className="px-4 py-6 text-right tabular-nums align-top">
+        <span className="text-base font-bold">{session.participantCount}</span>
+      </td>
+      <td className="px-4 py-6 text-right tabular-nums align-top">
+        <span className="text-base font-bold">{session.ideaCount}</span>
+      </td>
+      <td className="px-4 py-6 text-right tabular-nums align-top">
+        <span
+          className="text-base font-bold"
+          style={{ color: session.voteCount > 0 ? C.red : C.black }}
+        >
+          {session.voteCount}
+        </span>
+      </td>
+      <td className="px-4 py-6 align-top max-w-md">
         {top ? (
-          <span title={top.text}>
-            <span className="font-semibold">{top.voteCount} votes</span>{" "}
-            <span className="text-neutral-600">— {truncate(top.text, 80)}</span>
-          </span>
+          <div title={top.text}>
+            <span
+              className="inline-block px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider"
+              style={{ background: C.black, color: C.white, marginRight: "0.5rem" }}
+            >
+              {top.voteCount} {top.voteCount === 1 ? "vote" : "votes"}
+            </span>
+            <span className="text-sm" style={{ color: C.darkGray }}>
+              {truncate(top.text, 80)}
+            </span>
+          </div>
         ) : (
-          <span className="text-neutral-400 italic">No votes yet</span>
+          <span className="text-sm italic" style={{ color: C.gray500 }}>
+            No votes yet
+          </span>
         )}
       </td>
-      <td className="px-3 py-4 text-right">
-        <div className="flex gap-2 justify-end">
+      <td className="px-4 py-6 text-right align-top">
+        <div className="flex gap-2 justify-end opacity-60 group-hover:opacity-100 transition-opacity">
           <a
             href={adminUrl}
             target="_blank"
             rel="noreferrer"
-            className="px-3 py-1.5 text-xs font-semibold uppercase tracking-wider border hover:bg-black hover:text-white transition-colors"
-            style={{ borderColor: C.lightGray }}
+            className="px-3 py-1.5 text-[10px] font-semibold uppercase tracking-[0.18em] border hover:bg-black hover:text-white transition-colors"
+            style={{ borderColor: C.darkGray }}
           >
             Open
           </a>
           <button
             onClick={onDelete}
-            className="px-3 py-1.5 text-xs font-semibold uppercase tracking-wider border hover:text-white transition-colors"
+            className="px-3 py-1.5 text-[10px] font-semibold uppercase tracking-[0.18em] border transition-colors hover:bg-red-50"
             style={{ borderColor: C.lightGray, color: C.red }}
           >
             Delete
