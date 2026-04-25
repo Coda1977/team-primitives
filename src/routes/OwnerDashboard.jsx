@@ -14,6 +14,7 @@ import { Download } from "lucide-react";
 import { api } from "../../convex/_generated/api";
 import { C } from "../config/constants";
 import { exportTopIdeasDocx, exportAllSessionsZip } from "../utils/export";
+import { saveAs } from "file-saver";
 
 // Module-scoped cache: in React 19 strict mode useEffect runs twice; the
 // second run would see an already-stripped hash and incorrectly redirect.
@@ -89,6 +90,24 @@ function DashboardInner({ ownerKey, sessions }) {
   const [deleteTarget, setDeleteTarget] = useState(null); // session row to confirm delete
   const [downloadingId, setDownloadingId] = useState(null);
   const [zipState, setZipState] = useState({ active: false, current: 0, total: 0 });
+
+  const onDownloadBackup = () => {
+    const env = import.meta.env;
+    const backup = {
+      version: 1,
+      ownerKey,
+      convexUrl: env.VITE_CONVEX_URL ?? "",
+      savedAt: new Date().toISOString(),
+      origin: window.location.origin,
+      note:
+        "Restore at /owner/restore. This file contains your owner key — store it like any other secret (1Password, encrypted note app, etc.). Anyone with this file can access every workshop in this deployment.",
+    };
+    const blob = new Blob([JSON.stringify(backup, null, 2)], {
+      type: "application/json",
+    });
+    const date = new Date().toISOString().slice(0, 10);
+    saveAs(blob, `team-primitives-owner-${date}.json`);
+  };
 
   const onExportAll = async () => {
     if (zipState.active) return;
@@ -211,6 +230,14 @@ function DashboardInner({ ownerKey, sessions }) {
               </div>
             </div>
             <div className="flex items-center gap-3 flex-wrap">
+              <button
+                onClick={onDownloadBackup}
+                className="px-4 py-3 text-[10px] font-semibold uppercase tracking-[0.22em] inline-flex items-center gap-2 border hover:bg-black hover:text-white transition-colors"
+                style={{ borderColor: C.darkGray, color: C.darkGray }}
+                title="Save your owner key as a JSON file for safe-keeping. Restore at /owner/restore."
+              >
+                <Download size={12} /> Save backup
+              </button>
               {sessions.length > 0 && (
                 <button
                   onClick={onExportAll}
