@@ -25,9 +25,9 @@ Target directory: `C:\Users\yonat\OneDrive\AI\Apps\Team Primitives`
 | D. Voting + ranked-results reveal | ✅ Done — votesPerParticipant input, VoteView, castVote/closeVoting, RankedIdeasView | commit `1a177d3` |
 | Presentation view (`/s/:code/present`) | ✅ Done — added per user feedback during build; light-mode editorial broadcast layout; live-mirrors session state | commits `de07932`, `d538d67` |
 | Editorial design pass (all pages) | ✅ Done — broadcast hierarchy applied to Join, IntakeView, OwnerDashboard, AdminBoard, VoteView, MyBoardView tabs | commit `ef77a58` |
-| E. Word/PDF export wiring | TODO | — |
+| E. Word export wiring | ✅ Done — three exports (Top Ideas, Full Board, Personal) wired into MyBoardView, AdminBoard, and OwnerDashboard per-row | commit `da619a6` |
 | F. Simulation harness | TODO | — |
-| G. Owner library | Partial — dashboard live, sessions list, create modal, delete cascade work; per-row Word download + bulk ZIP still TODO | commit `d7471bb` |
+| G. Owner library extras | Partial — dashboard + create + delete + per-row Word export shipped; bulk ZIP still TODO | commit `da619a6` |
 
 ### Key divergences from the original plan
 

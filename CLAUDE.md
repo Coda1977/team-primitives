@@ -102,9 +102,9 @@ The owner dashboard at `/owner` is THE home page. AdminCreate at `/` is just a m
 - **Phase D** (voting on dedup'd ideas + ranked-results reveal) — ✅ DONE
 - **Presentation view** (`/s/:code/present`) — ✅ DONE (light-mode editorial broadcast; not in original plan, added per user feedback)
 - **Editorial design pass** (Join, IntakeView, OwnerDashboard, AdminBoard, VoteView, MyBoardView tabs) — ✅ DONE
-- **Phase E** (Word/PDF export wiring: `exportTopIdeasDocx`, `exportSynthesisDocx`, `exportParticipantDocx`) — TODO
-- **Phase F** (simulation harness with Anthropic-driven persona LLMs, separate `team-primitives-staging` Convex deployment) — TODO
-- **Phase G** (owner library extras: per-row Word download + bulk ZIP export) — partial; dashboard + create + delete shipped, exports TODO
+- **Phase E** (Word export wiring: `exportTopIdeasDocx`, `exportSynthesisDocx`, `exportParticipantDocx`) — ✅ DONE
+- **Phase F** (simulation harness with Anthropic-driven persona LLMs, separate `team-primitives-staging` Convex deployment) — TODO (next)
+- **Phase G** (owner library extras: per-row Word download + bulk ZIP export) — partial; dashboard + create + delete + per-row Word export shipped, bulk ZIP still TODO
 
 ## Git Workflow
 
