@@ -20,6 +20,7 @@ import type * as ownerQueries from "../ownerQueries.js";
 import type * as participants from "../participants.js";
 import type * as sessions from "../sessions.js";
 import type * as synthesis from "../synthesis.js";
+import type * as votes from "../votes.js";
 
 import type {
   ApiFromModules,
@@ -40,6 +41,7 @@ declare const fullApi: ApiFromModules<{
   participants: typeof participants;
   sessions: typeof sessions;
   synthesis: typeof synthesis;
+  votes: typeof votes;
 }>;
 
 /**

@@ -12,6 +12,7 @@ import RosterPanel from "../components/admin/RosterPanel";
 import RawStarredList from "../components/admin/RawStarredList";
 import SynthesizeButton from "../components/admin/SynthesizeButton";
 import ClusterCard from "../components/admin/ClusterCard";
+import VotingControlsPanel from "../components/admin/VotingControlsPanel";
 
 export default function AdminBoard() {
   const { code } = useParams();
@@ -173,6 +174,9 @@ function AdminInner({ session, adminKey }) {
                     participants={participants ?? []}
                   />
                 ))}
+                <div className="pt-4">
+                  <VotingControlsPanel session={session} adminKey={adminKey} />
+                </div>
               </div>
             )}
           </section>

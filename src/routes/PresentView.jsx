@@ -11,6 +11,7 @@ import { useQuery } from "convex/react";
 import { api } from "../../convex/_generated/api";
 import { CATEGORIES } from "../config/categories";
 import { C } from "../config/constants";
+import RankedIdeasView from "../components/views/RankedIdeasView";
 
 export default function PresentView() {
   const { code } = useParams();
@@ -55,6 +56,9 @@ function PresentInner({ session, adminKey }) {
     sessionId: session._id,
     adminKey,
   });
+  const rankedResults = useQuery(api.votes.getRankedResults, {
+    sessionId: session._id,
+  });
 
   const lockedCount = (participants ?? []).filter((p) => p.phase === "locked").length;
   const totalParticipants = participants?.length ?? 0;
@@ -63,10 +67,49 @@ function PresentInner({ session, adminKey }) {
   const hasSynthesis = synthesis?.status === "ready" && synthesis.clusters.length > 0;
   const synthRunning = synthesis?.status === "running";
 
+  const votingOpen = session.votingStatus === "open";
+  const votingClosed = session.votingStatus === "closed_with_results";
+
+  // Ranked results reveal — the moment the workshop has been building toward.
+  if (votingClosed && rankedResults) {
+    return (
+      <main
+        className="min-h-screen"
+        style={{ background: C.white, color: C.black }}
+      >
+        <div className="max-w-[1800px] mx-auto px-12 py-10">
+          <Header
+            session={session}
+            totalParticipants={totalParticipants}
+            lockedCount={lockedCount}
+            inProgress={inProgress}
+            hasSynthesis={hasSynthesis}
+          />
+          <div
+            className="text-sm uppercase tracking-[0.3em] text-neutral-500 mb-10 flex items-baseline justify-between gap-4 flex-wrap"
+          >
+            <span>Final results — voting closed</span>
+            <span className="text-neutral-600 normal-case tracking-normal">
+              {rankedResults.participantCount} {rankedResults.participantCount === 1 ? "person voted" : "people voted"}
+              {" · "}
+              {rankedResults.votesPerParticipant} {rankedResults.votesPerParticipant === 1 ? "vote" : "votes"} each
+            </span>
+          </div>
+          <RankedIdeasView
+            ranked={rankedResults.ranked}
+            participantCount={rankedResults.participantCount}
+            votesPerParticipant={rankedResults.votesPerParticipant}
+            variant="stage"
+          />
+        </div>
+      </main>
+    );
+  }
+
   return (
     <main
       className="min-h-screen"
-      style={{ background: C.black, color: C.white }}
+      style={{ background: C.white, color: C.black }}
     >
       <div className="max-w-[1800px] mx-auto px-12 py-10">
         <Header
@@ -76,6 +119,16 @@ function PresentInner({ session, adminKey }) {
           inProgress={inProgress}
           hasSynthesis={hasSynthesis}
         />
+
+        {votingOpen && (
+          <div
+            className="border-l-4 px-5 py-3 mb-6 text-sm"
+            style={{ borderColor: C.red, background: C.starredBg }}
+          >
+            <strong>Voting is open.</strong> Each teammate has{" "}
+            {session.votesPerParticipant ?? 3} votes. Vote totals will be revealed when the admin closes voting.
+          </div>
+        )}
 
         {hasSynthesis ? (
           <IdeasGrid
@@ -110,26 +163,26 @@ function Header({ session, totalParticipants, lockedCount, inProgress, hasSynthe
   return (
     <header className="mb-12 flex items-baseline justify-between flex-wrap gap-4">
       <div>
-        <p className="text-xs uppercase tracking-[0.3em] text-neutral-400 mb-2">
+        <p className="text-xs uppercase tracking-[0.3em] text-neutral-500 mb-2">
           Team Primitives
         </p>
         <h1 className="text-5xl font-bold tracking-tight">
           {session.functionName}
         </h1>
-        <p className="text-lg text-neutral-400 mt-2">
+        <p className="text-lg text-neutral-600 mt-2">
           {session.industry ? `${session.industry} · ` : ""}
           {session.teamSize ? `team of ${session.teamSize} · ` : ""}
           where AI fits in our function
         </p>
       </div>
-      <div className="text-right text-sm text-neutral-500 leading-relaxed">
+      <div className="text-right text-sm text-neutral-600 leading-relaxed">
         <div>
-          <span className="text-white font-bold tabular-nums">{totalParticipants}</span>{" "}
+          <span className="text-black font-bold tabular-nums">{totalParticipants}</span>{" "}
           {totalParticipants === 1 ? "participant" : "participants"}
         </div>
         <div>
-          <span className="text-white font-bold tabular-nums">{lockedCount}</span> locked,{" "}
-          <span className="text-white font-bold tabular-nums">{inProgress}</span> in progress
+          <span className="text-black font-bold tabular-nums">{lockedCount}</span> locked,{" "}
+          <span className="text-black font-bold tabular-nums">{inProgress}</span> in progress
         </div>
       </div>
     </header>
@@ -233,7 +286,7 @@ function CategoryZone({ category, ideas, children }) {
     <section>
       <div
         className="flex items-baseline gap-3 mb-4 pb-3 border-b"
-        style={{ borderColor: "rgba(255,255,255,0.15)" }}
+        style={{ borderColor: C.lightGray }}
       >
         <span
           className="inline-block w-3 h-3 rounded-full flex-shrink-0"
@@ -250,25 +303,25 @@ function CategoryZone({ category, ideas, children }) {
 }
 
 function StickyNote({ text, subtext, contributors, accentColor, emphasized }) {
-  // Card surface is white-ish on the dark backdrop, with a left accent stripe
-  // in the category color. Multi-contributor cards (emphasized) get a thicker
-  // stripe + a contributor count badge.
+  // Card surface is light gray on white; multi-contributor cards (emphasized)
+  // get a thicker accent stripe + the starred-bg pink wash + a contributor
+  // count badge in the category color.
   return (
     <div
       className="relative pl-5 pr-4 py-4 transition-transform"
       style={{
-        background: emphasized ? "rgba(255,255,255,0.08)" : "rgba(255,255,255,0.04)",
+        background: emphasized ? C.starredBg : C.surface,
         borderLeft: `${emphasized ? 4 : 2}px solid ${accentColor}`,
       }}
     >
       <p
         className={`leading-snug ${emphasized ? "text-base font-semibold" : "text-[15px]"}`}
-        style={{ color: C.white }}
+        style={{ color: C.black }}
       >
         {text}
       </p>
       {subtext && emphasized && (
-        <p className="text-sm text-neutral-400 mt-2 leading-relaxed">
+        <p className="text-sm text-neutral-700 mt-2 leading-relaxed">
           {subtext}
         </p>
       )}
@@ -281,7 +334,7 @@ function StickyNote({ text, subtext, contributors, accentColor, emphasized }) {
             {contributors.length} ✕
           </span>
         )}
-        <span className="text-xs text-neutral-500">
+        <span className="text-xs text-neutral-600">
           {contributors.join(" · ")}
         </span>
       </div>
@@ -294,7 +347,7 @@ function CenteredMessage({ title, subtitle }) {
     <div className="min-h-[60vh] flex items-center justify-center text-center">
       <div className="max-w-2xl">
         <h2 className="text-3xl font-bold tracking-tight mb-3">{title}</h2>
-        <p className="text-lg text-neutral-400 leading-relaxed">{subtitle}</p>
+        <p className="text-lg text-neutral-600 leading-relaxed">{subtitle}</p>
       </div>
     </div>
   );
@@ -304,7 +357,7 @@ function FullScreenStatus({ children }) {
   return (
     <main
       className="min-h-screen flex items-center justify-center text-center"
-      style={{ background: C.black, color: C.white }}
+      style={{ background: C.white, color: C.black }}
     >
       <p className="text-lg max-w-md px-6">{children}</p>
     </main>
