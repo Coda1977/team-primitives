@@ -15,6 +15,54 @@ Target directory: `C:\Users\yonat\OneDrive\AI\Apps\Team Primitives`
 
 ---
 
+## Build status (2026-04-25)
+
+| Phase | Status | Reference |
+|---|---|---|
+| A. Scaffold | ✅ Done | commit `28a06a2` |
+| B. Single-participant happy path | ✅ Done — intake, animated GeneratingIndicator (6-step), canvas with star/edit/delete/add, ChatDrawer, finalizeStars, MyBoardView | commits up to `bb734a8` |
+| C. Admin board + synthesis | ✅ Done — roster with idle indicators, raw starred list, synthesize action, cluster output | commit `6dd410b` |
+| D. Voting + ranked-results reveal | ✅ Done — votesPerParticipant input, VoteView, castVote/closeVoting, RankedIdeasView | commit `1a177d3` |
+| Presentation view (`/s/:code/present`) | ✅ Done — added per user feedback during build; light-mode editorial broadcast layout; live-mirrors session state | commits `de07932`, `d538d67` |
+| Editorial design pass (all pages) | ✅ Done — broadcast hierarchy applied to Join, IntakeView, OwnerDashboard, AdminBoard, VoteView, MyBoardView tabs | commit `ef77a58` |
+| E. Word/PDF export wiring | TODO | — |
+| F. Simulation harness | TODO | — |
+| G. Owner library | Partial — dashboard live, sessions list, create modal, delete cascade work; per-row Word download + bulk ZIP still TODO | commit `d7471bb` |
+
+### Key divergences from the original plan
+
+These came up during build and the plan above doesn't fully reflect them — here's the canonical record:
+
+**1. AdminCreate merged into OwnerDashboard.** The plan had AdminCreate at `/` as a one-shot "create a session" form that redirects to the new admin board. During build the user pushed back: *"why do I need a specific screen? Let's just have one dashboard where I create everything."* Now `/owner#k=...` is the home — see all sessions in a table, click "+ New workshop" to open a modal, on submit the new session appears in the table immediately. AdminCreate at `/` is now a minimal landing pointing owners and participants to their bookmarks/links.
+
+**2. "Cluster" dropped as a user-facing concept.** The plan modeled synthesis output as named clusters with titles + summaries that voters interacted with. During build the user pushed back: *"we don't need clusters at all. The 6 primitives are already the structure. The only thing that matters is removing duplicates."* Internal data shape unchanged (`synthesis.clusters[]` is still how the row is stored), but every user-facing label flipped from "Synthesized clusters" to "Team's ideas — duplicates removed". `cluster.title` is now interpreted as the canonical idea text after dedup; `cluster.summary` is supporting copy when 2+ sources merged.
+
+**3. Voting unit = deduplicated idea, not raw individual stars.** The plan said vote per individual idea, with clusters as visual organization only. Once clusters were dropped as user-facing, voting on raw stars made no sense (split votes between near-duplicates). The implementation casts votes against each cluster's first `memberIdeaIds[0]` (the "anchor"); cluster vote counts aggregate across all `memberIdeaIds`. Side benefit: re-synthesis preserves vote attribution naturally (votes follow ideas, not clusters).
+
+**4. Presentation view added (`/s/:code/present?k=adminKey`).** Not in the original plan. Added when user asked for *"a more visual way to present on screen, like Miro."* Live-mirrors session state via the same Convex queries the admin board uses. Three states: pre-stars/pre-synthesis waiting message, deduped sticky-note grid, post-vote ranked-results reveal. Designed for projection.
+
+**5. Light mode (not dark) for presentation view.** Initial build was dark — user pushed back: *"light is easier to read at distance."* Now uses white background + black text + the original AI Playbook color tokens (red, electricBlue, starredBg, surface, lightGray) consistently.
+
+**6. Editorial design language adopted across all pages.** Each page uses the same pattern: red kicker tick + small-caps tracked label + display title + supporting copy + hairline rule + content. Stagger fade reveals on first mount via inline CSS `@keyframes` + `animationDelay` (60–80ms between elements, 600–800ms duration). See CLAUDE.md → "Design Language" for the full pattern.
+
+**7. No upfront frontend-design reflection.** User opted to inherit the AI Playbook design system as-is rather than running a visual identity reflection. The `frontend-design` skill was invoked later (after Phase D) for the editorial pass — to refine hierarchy and breathing room within the inherited palette/type, not to choose new tokens.
+
+**8. `useEffect` strict-mode bug fix in OwnerDashboard.** React 19 strict mode runs `useEffect` twice in dev. The OwnerDashboard's hash-key parser was redirecting on the second run because the URL fragment had been stripped. Fix: module-scoped `KEY_CACHE` + `processed.current` ref to make hash parsing idempotent across remounts.
+
+**9. `"use node"` files cannot contain mutations.** The first attempt put `writeGeneratedIdeas` (an `internalMutation`) in `convex/ai/generateCanvas.ts` (which is `"use node"` for Anthropic SDK). Convex rejected the push. Fix: internal mutations live in `convex/aiInternal.ts` (V8 runtime); only `action`s live in `convex/ai/*.ts` (Node runtime). Action calls mutation via `ctx.runMutation(internal.aiInternal.writeGeneratedIdeas, ...)`.
+
+### Working end-to-end test data (PM-P602)
+
+The PM-P602 session in the dev deployment has the full post-vote state for testing:
+- 2 participants locked (Jordan, alex) with 5 stars each
+- 8 deduplicated ideas across 5 categories
+- Voting closed: "Generate positioning angle variations from features" won with 2 votes (cross-team consensus from Jordan + alex)
+- Other clusters: 5 tied at #2 (1 vote each), 3 tied at #6 (0 votes)
+
+Walk it: `/owner#k=<OWNER_KEY>` → click PM-P602 row → admin board → "Open presentation" button.
+
+---
+
 ## Product decisions (locked)
 
 ### Session (set by admin at creation)
