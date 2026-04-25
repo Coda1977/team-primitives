@@ -94,6 +94,8 @@ No accounts, no auth servers.
 
 The owner dashboard at `/owner` is THE home page. AdminCreate at `/` is just a minimal landing telling owners and participants where to go. Sessions are created from the owner dashboard's "+ New workshop" modal.
 
+**Owner URL recovery.** The dashboard has a "Save backup" button that downloads a JSON file (`team-primitives-owner-<date>.json`) containing the OWNER_KEY + Convex URL. Store it in 1Password / encrypted notes / a private repo. If the bookmark URL is ever lost, visit `/owner/restore`, drop the file in, and the validated key redirects to the dashboard. Backup files are plaintext — treat them like any other secret. CLI fallback: `npx convex env set OWNER_KEY $(openssl rand -hex 16)` rotates the key, then visit `/owner#k=<new-key>` and download a fresh backup immediately.
+
 ## Build phases (per PLAN.md → see PLAN.md "Build status" for the canonical record)
 
 - **Phase A** (scaffold) — ✅ DONE
