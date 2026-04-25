@@ -14,6 +14,7 @@ import type * as canvas from "../canvas.js";
 import type * as intake from "../intake.js";
 import type * as lib_anthropic from "../lib/anthropic.js";
 import type * as lib_ids from "../lib/ids.js";
+import type * as ownerQueries from "../ownerQueries.js";
 import type * as participants from "../participants.js";
 import type * as sessions from "../sessions.js";
 
@@ -30,6 +31,7 @@ declare const fullApi: ApiFromModules<{
   intake: typeof intake;
   "lib/anthropic": typeof lib_anthropic;
   "lib/ids": typeof lib_ids;
+  ownerQueries: typeof ownerQueries;
   participants: typeof participants;
   sessions: typeof sessions;
 }>;

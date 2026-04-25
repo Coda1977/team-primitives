@@ -1,47 +1,9 @@
+// Session creation is owner-gated and lives in convex/ownerQueries.ts
+// (see createSessionAsOwner). Only owners can create sessions, so the dashboard
+// at /owner is the single entry point.
+
 import { mutation, query } from "./_generated/server";
 import { v } from "convex/values";
-import { generateAdminKey, generateSessionCode } from "./lib/ids";
-
-export const createSession = mutation({
-  args: {
-    functionName: v.string(),
-    teamSize: v.optional(v.number()),
-    industry: v.optional(v.string()),
-  },
-  handler: async (ctx, args) => {
-    const trimmedFunctionName = args.functionName.trim();
-    if (!trimmedFunctionName) {
-      throw new Error("Function name is required");
-    }
-
-    // Retry on code collision (very unlikely but defensive)
-    let code = generateSessionCode(trimmedFunctionName);
-    for (let attempt = 0; attempt < 5; attempt++) {
-      const existing = await ctx.db
-        .query("sessions")
-        .withIndex("by_code", (q) => q.eq("code", code))
-        .unique();
-      if (!existing) break;
-      code = generateSessionCode(trimmedFunctionName);
-    }
-
-    const adminKey = generateAdminKey();
-    const now = Date.now();
-
-    const sessionId = await ctx.db.insert("sessions", {
-      code,
-      functionName: trimmedFunctionName,
-      teamSize: args.teamSize,
-      industry: args.industry?.trim() || undefined,
-      adminKey,
-      status: "open",
-      votingStatus: "idle",
-      createdAt: now,
-    });
-
-    return { sessionId, code, adminKey };
-  },
-});
 
 // Public query: returns session by code, NO adminKey exposed.
 export const getSession = query({
