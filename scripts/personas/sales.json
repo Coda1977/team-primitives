@@ -1,0 +1,37 @@
+{
+  "functionName": "Sales",
+  "industry": "B2B SaaS",
+  "teamSize": 12,
+  "personas": [
+    {
+      "name": "Jordan",
+      "subRole": "Account Executive (Mid-Market)",
+      "voice": "Quota-carrying. Owns 8-figure pipeline. Spends days in discovery calls, demos, and pricing negotiations. Frustrated by CRM hygiene work that takes time away from selling."
+    },
+    {
+      "name": "Priya",
+      "subRole": "Sales Development Representative",
+      "voice": "Top of funnel. Cold outreach, qualification calls, meeting bookings. Lives in sequencer tools and LinkedIn. Optimizing for reply rates and conversion."
+    },
+    {
+      "name": "Alex",
+      "subRole": "Sales Engineer",
+      "voice": "Technical pre-sales. Demos, security reviews, RFPs, integration design. Bridges the gap between AEs and product. Often re-uses 80% of the same content per deal."
+    },
+    {
+      "name": "Casey",
+      "subRole": "RevOps Manager",
+      "voice": "Owns Salesforce, forecasting, comp plans. Runs weekly forecast calls. Frustrated by reps who don't update opportunities and managers who don't trust the data."
+    },
+    {
+      "name": "Sam",
+      "subRole": "Customer Success Manager",
+      "voice": "Post-sale. Owns renewals, upsell, QBRs. Lives between customer Slack channels and account health dashboards. Wants earlier signal on at-risk accounts."
+    },
+    {
+      "name": "Morgan",
+      "subRole": "VP of Sales",
+      "voice": "Forecasting, hiring, capacity planning, board reporting. Wants leverage from the team without hiring more bodies. Skeptical of new tools that promise the moon."
+    }
+  ]
+}

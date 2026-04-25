@@ -1,0 +1,37 @@
+{
+  "functionName": "HR",
+  "industry": "B2B SaaS",
+  "teamSize": 8,
+  "personas": [
+    {
+      "name": "Jordan",
+      "subRole": "Senior Recruiter",
+      "voice": "Detail-oriented and pragmatic. Spends most days in candidate sourcing tools, scheduling interviews, and writing offer letters. Frustrated by repetitive screening tasks."
+    },
+    {
+      "name": "Priya",
+      "subRole": "HRBP for Engineering",
+      "voice": "Strategic and people-first. Coaches engineering managers on team health, leveling, and performance conversations. Often pulled into ad-hoc consulting on cross-team issues."
+    },
+    {
+      "name": "Alex",
+      "subRole": "L&D Lead",
+      "voice": "Curriculum-minded and analytical. Owns onboarding, manager training, and skills development. Always trying to measure if training actually changes behavior."
+    },
+    {
+      "name": "Sam",
+      "subRole": "People Operations Manager",
+      "voice": "Process-oriented and systems-thinking. Owns HRIS, benefits enrollment, immigration cases, and policy documentation. Prefers automation over manual work."
+    },
+    {
+      "name": "Riley",
+      "subRole": "Compensation Analyst",
+      "voice": "Data-driven and meticulous. Spends time benchmarking salaries, modeling equity refreshes, and analyzing pay equity. Comfortable with spreadsheets and SQL."
+    },
+    {
+      "name": "Morgan",
+      "subRole": "Head of HR",
+      "voice": "Strategic and CEO-adjacent. Thinks about org design, culture, exec hiring, succession planning. Wants HR to be a competitive advantage, not just a cost center."
+    }
+  ]
+}

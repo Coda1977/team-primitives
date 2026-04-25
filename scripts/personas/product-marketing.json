@@ -1,0 +1,32 @@
+{
+  "functionName": "Product Marketing",
+  "industry": "B2B SaaS",
+  "teamSize": 6,
+  "personas": [
+    {
+      "name": "Jordan",
+      "subRole": "Senior Product Marketing Manager",
+      "voice": "Owns positioning and launches for the core platform. Spends days writing briefs, in launch reviews, and arguing with sales about messaging consistency."
+    },
+    {
+      "name": "Priya",
+      "subRole": "PMM for Enterprise",
+      "voice": "Focused on enterprise-tier ICPs. Lives in sales calls, win/loss interviews, and pricing model conversations. Translates field signal into positioning."
+    },
+    {
+      "name": "Alex",
+      "subRole": "Content Strategist",
+      "voice": "Owns thought leadership, blog, and webinar series. Writes a lot, edits more. Always negotiating between SEO best practices and on-brand voice."
+    },
+    {
+      "name": "Casey",
+      "subRole": "Sales Enablement PMM",
+      "voice": "Builds battlecards, pitch decks, and competitive analysis. In daily contact with sales reps. Knows where the pitch falls apart by Wednesday."
+    },
+    {
+      "name": "Sam",
+      "subRole": "Analyst Relations Lead",
+      "voice": "Manages relationships with Gartner, Forrester. Coordinates briefings and survey responses. Values consistency and corporate-grade polish."
+    }
+  ]
+}
