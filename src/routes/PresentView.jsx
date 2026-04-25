@@ -1,9 +1,7 @@
 // Route: /s/:code/present?k=:adminKey
-// Persona: facilitator projects this on a screen during the live workshop;
-// the room sees the team's ideas as a projector-friendly designed grid.
-//
-// Live-mirrors the session: as participants lock stars and admin runs synthesis,
-// this view updates. No controls, no admin chrome — just the workshop output.
+// Persona: facilitator projects this on a screen during the live workshop.
+// Designed for projection — editorial broadcast, light theme, generous
+// vertical rhythm, dramatic reveal on the post-vote winner.
 
 import { useEffect } from "react";
 import { useParams, useSearchParams, Navigate } from "react-router-dom";
@@ -12,6 +10,13 @@ import { api } from "../../convex/_generated/api";
 import { CATEGORIES } from "../config/categories";
 import { C } from "../config/constants";
 import RankedIdeasView from "../components/views/RankedIdeasView";
+
+const FADE_KEYFRAMES = `
+  @keyframes presentReveal {
+    0% { opacity: 0; transform: translateY(20px); }
+    100% { opacity: 1; transform: translateY(0); }
+  }
+`;
 
 export default function PresentView() {
   const { code } = useParams();
@@ -23,8 +28,6 @@ export default function PresentView() {
     code && adminKey ? { code, adminKey } : "skip"
   );
 
-  // Apply a body-level class so the presentation view fills the viewport
-  // edge-to-edge regardless of the rest of the app's centered max-width.
   useEffect(() => {
     document.body.classList.add("present-mode");
     return () => document.body.classList.remove("present-mode");
@@ -70,31 +73,27 @@ function PresentInner({ session, adminKey }) {
   const votingOpen = session.votingStatus === "open";
   const votingClosed = session.votingStatus === "closed_with_results";
 
-  // Ranked results reveal — the moment the workshop has been building toward.
+  // ============================================================
+  // POST-VOTE: ranked results reveal — the workshop's payoff moment
+  // ============================================================
   if (votingClosed && rankedResults) {
     return (
-      <main
-        className="min-h-screen"
-        style={{ background: C.white, color: C.black }}
-      >
-        <div className="max-w-[1800px] mx-auto px-12 py-10">
-          <Header
+      <main className="min-h-screen" style={{ background: C.white, color: C.black }}>
+        <style>{FADE_KEYFRAMES}</style>
+        <div className="max-w-[1600px] mx-auto px-12 lg:px-20 py-16 lg:py-24">
+          <BroadcastHeader
             session={session}
-            totalParticipants={totalParticipants}
-            lockedCount={lockedCount}
-            inProgress={inProgress}
-            hasSynthesis={hasSynthesis}
+            kicker="Final results"
+            metadata={
+              <>
+                {rankedResults.participantCount}{" "}
+                {rankedResults.participantCount === 1 ? "person voted" : "people voted"}
+                <span className="mx-3" style={{ color: C.lightGray }}>·</span>
+                {rankedResults.votesPerParticipant}{" "}
+                {rankedResults.votesPerParticipant === 1 ? "vote" : "votes"} each
+              </>
+            }
           />
-          <div
-            className="text-sm uppercase tracking-[0.3em] text-neutral-500 mb-10 flex items-baseline justify-between gap-4 flex-wrap"
-          >
-            <span>Final results — voting closed</span>
-            <span className="text-neutral-600 normal-case tracking-normal">
-              {rankedResults.participantCount} {rankedResults.participantCount === 1 ? "person voted" : "people voted"}
-              {" · "}
-              {rankedResults.votesPerParticipant} {rankedResults.votesPerParticipant === 1 ? "vote" : "votes"} each
-            </span>
-          </div>
           <RankedIdeasView
             ranked={rankedResults.ranked}
             participantCount={rankedResults.participantCount}
@@ -106,27 +105,67 @@ function PresentInner({ session, adminKey }) {
     );
   }
 
+  // ============================================================
+  // VOTING OPEN or POST-SYNTHESIS or PRE-SYNTHESIS or WAITING
+  // ============================================================
   return (
-    <main
-      className="min-h-screen"
-      style={{ background: C.white, color: C.black }}
-    >
-      <div className="max-w-[1800px] mx-auto px-12 py-10">
-        <Header
+    <main className="min-h-screen" style={{ background: C.white, color: C.black }}>
+      <style>{FADE_KEYFRAMES}</style>
+      <div className="max-w-[1600px] mx-auto px-12 lg:px-20 py-16 lg:py-24">
+        <BroadcastHeader
           session={session}
-          totalParticipants={totalParticipants}
-          lockedCount={lockedCount}
-          inProgress={inProgress}
-          hasSynthesis={hasSynthesis}
+          kicker={
+            votingOpen
+              ? "Voting in progress"
+              : hasSynthesis
+              ? "Team's ideas — duplicates removed"
+              : starred && starred.length > 0
+              ? "Live: ideas as the team locks them in"
+              : "Workshop"
+          }
+          metadata={
+            <>
+              <span className="font-bold text-black">{totalParticipants}</span>{" "}
+              {totalParticipants === 1 ? "participant" : "participants"}
+              <span className="mx-3" style={{ color: C.lightGray }}>·</span>
+              <span className="font-bold text-black">{lockedCount}</span> locked
+              {inProgress > 0 && (
+                <>
+                  <span className="mx-3" style={{ color: C.lightGray }}>·</span>
+                  <span className="font-bold text-black">{inProgress}</span> still working
+                </>
+              )}
+            </>
+          }
         />
 
         {votingOpen && (
           <div
-            className="border-l-4 px-5 py-3 mb-6 text-sm"
-            style={{ borderColor: C.red, background: C.starredBg }}
+            className="mb-16 p-6 lg:p-8 flex items-center gap-5"
+            style={{
+              background: C.starredBg,
+              borderLeft: `4px solid ${C.red}`,
+              opacity: 0,
+              animation: `presentReveal 600ms ease-out 100ms forwards`,
+            }}
           >
-            <strong>Voting is open.</strong> Each teammate has{" "}
-            {session.votesPerParticipant ?? 3} votes. Vote totals will be revealed when the admin closes voting.
+            <div
+              className="text-4xl font-bold leading-none tabular-nums"
+              style={{ color: C.red }}
+            >
+              {session.votesPerParticipant ?? 3}
+            </div>
+            <div>
+              <div className="text-xs font-bold uppercase tracking-[0.28em] mb-1">
+                Voting is open
+              </div>
+              <div className="text-sm" style={{ color: C.darkGray }}>
+                Each teammate has{" "}
+                {session.votesPerParticipant ?? 3}{" "}
+                {(session.votesPerParticipant ?? 3) === 1 ? "vote" : "votes"}.
+                Totals are revealed when the admin closes voting.
+              </div>
+            </div>
           </div>
         )}
 
@@ -147,7 +186,9 @@ function PresentInner({ session, adminKey }) {
             title="Waiting for the team"
             subtitle={
               inProgress > 0
-                ? `${inProgress} ${inProgress === 1 ? "person is" : "people are"} still working through their canvas. As they lock their stars, ideas will appear here.`
+                ? `${inProgress} ${
+                    inProgress === 1 ? "person is" : "people are"
+                  } still working through their canvas. As they lock their stars, ideas will appear here.`
                 : totalParticipants === 0
                 ? "Share the participant URL with your team to begin."
                 : "Everyone's ready. Run synthesis from the admin board."
@@ -159,124 +200,149 @@ function PresentInner({ session, adminKey }) {
   );
 }
 
-function Header({ session, totalParticipants, lockedCount, inProgress, hasSynthesis }) {
+// ============================================================
+// HEADER — the broadcast-style title block
+// ============================================================
+function BroadcastHeader({ session, kicker, metadata }) {
   return (
-    <header className="mb-12 flex items-baseline justify-between flex-wrap gap-4">
-      <div>
-        <p className="text-xs uppercase tracking-[0.3em] text-neutral-500 mb-2">
-          Team Primitives
-        </p>
-        <h1 className="text-5xl font-bold tracking-tight">
-          {session.functionName}
-        </h1>
-        <p className="text-lg text-neutral-600 mt-2">
-          {session.industry ? `${session.industry} · ` : ""}
-          {session.teamSize ? `team of ${session.teamSize} · ` : ""}
-          where AI fits in our function
-        </p>
-      </div>
-      <div className="text-right text-sm text-neutral-600 leading-relaxed">
-        <div>
-          <span className="text-black font-bold tabular-nums">{totalParticipants}</span>{" "}
-          {totalParticipants === 1 ? "participant" : "participants"}
+    <header
+      className="mb-20 lg:mb-24"
+      style={{
+        opacity: 0,
+        animation: `presentReveal 700ms ease-out 0ms forwards`,
+      }}
+    >
+      <div className="flex items-end justify-between gap-8 flex-wrap mb-12">
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-3 mb-5">
+            <span
+              className="inline-block w-1 h-6"
+              style={{ background: C.red }}
+            />
+            <span className="text-[11px] font-bold uppercase tracking-[0.32em] text-neutral-500">
+              Team Primitives
+            </span>
+          </div>
+          <h1
+            className="font-bold leading-[0.95] tracking-tight"
+            style={{
+              fontSize: "clamp(3.5rem, 7vw, 6rem)",
+              letterSpacing: "-0.025em",
+            }}
+          >
+            {session.functionName}
+          </h1>
+          <p
+            className="mt-5 max-w-2xl"
+            style={{
+              fontSize: "clamp(1rem, 1.2vw, 1.25rem)",
+              color: C.darkGray,
+            }}
+          >
+            {session.industry ? `${session.industry} · ` : ""}
+            {session.teamSize ? `team of ${session.teamSize} · ` : ""}
+            where AI fits in our function
+          </p>
         </div>
-        <div>
-          <span className="text-black font-bold tabular-nums">{lockedCount}</span> locked,{" "}
-          <span className="text-black font-bold tabular-nums">{inProgress}</span> in progress
+        <div
+          className="text-right text-sm leading-relaxed whitespace-nowrap"
+          style={{ color: C.darkGray }}
+        >
+          {metadata}
         </div>
       </div>
+
+      {kicker && (
+        <div className="flex items-center gap-5">
+          <span
+            className="text-[11px] font-bold uppercase tracking-[0.32em] whitespace-nowrap"
+            style={{ color: C.darkGray }}
+          >
+            {kicker}
+          </span>
+          <span
+            className="flex-1 h-px"
+            style={{ background: C.lightGray }}
+          />
+        </div>
+      )}
     </header>
   );
 }
 
+// ============================================================
+// PRE-SYNTHESIS — sticky-note wall as ideas come in
+// ============================================================
 function PreSynthesisGrid({ starred }) {
-  // Group raw starred ideas by category for a sticky-wall feel during the
-  // workshop's "ideas pouring in" moment. When admin runs synthesis, this
-  // view auto-flips to the deduplicated grid.
   const byCategory = {};
   for (const idea of starred) {
     if (!byCategory[idea.categoryId]) byCategory[idea.categoryId] = [];
     byCategory[idea.categoryId].push(idea);
   }
-
   const filledCategories = CATEGORIES.filter(
     (cat) => (byCategory[cat.id] ?? []).length > 0
   );
 
   return (
-    <div className="space-y-12">
-      <div className="text-sm uppercase tracking-[0.3em] text-neutral-500">
-        Live: ideas as the team locks them in
-      </div>
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-x-10 gap-y-12">
-        {filledCategories.map((cat) => (
-          <CategoryZone key={cat.id} category={cat} ideas={byCategory[cat.id]}>
-            {byCategory[cat.id].map((idea) => (
-              <StickyNote
-                key={idea._id}
-                text={idea.text}
-                contributors={[idea.participantName]}
-                accentColor={cat.color}
-              />
-            ))}
-          </CategoryZone>
-        ))}
-      </div>
+    <div
+      className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-x-12 gap-y-16"
+      style={{
+        opacity: 0,
+        animation: `presentReveal 700ms ease-out 200ms forwards`,
+      }}
+    >
+      {filledCategories.map((cat, i) => (
+        <CategoryZone key={cat.id} category={cat} ideas={byCategory[cat.id]}>
+          {byCategory[cat.id].map((idea, j) => (
+            <StickyNote
+              key={idea._id}
+              text={idea.text}
+              contributors={[idea.participantName]}
+              accentColor={cat.color}
+              delay={i * 60 + j * 40 + 300}
+            />
+          ))}
+        </CategoryZone>
+      ))}
     </div>
   );
 }
 
+// ============================================================
+// POST-SYNTHESIS — deduplicated ideas grid
+// ============================================================
 function IdeasGrid({ ideas, participants }) {
-  // Post-synthesis: deduplicated ideas grouped by category. Each idea shows
-  // its canonical text (the synthesis-generated title for multi-source ideas,
-  // single-source idea text for solo contributions), category, and contributors.
   const byCategory = {};
   for (const idea of ideas) {
     if (!byCategory[idea.categoryId]) byCategory[idea.categoryId] = [];
     byCategory[idea.categoryId].push(idea);
   }
-
   const filledCategories = CATEGORIES.filter(
     (cat) => (byCategory[cat.id] ?? []).length > 0
   );
 
-  // Total deduplicated ideas + total contributors (distinct)
-  const totalIdeas = ideas.length;
-  const distinctVoters = new Set();
-  for (const idea of ideas) {
-    for (const pid of idea.participantIds) distinctVoters.add(pid);
-  }
-
   return (
-    <div className="space-y-10">
-      <div className="text-sm uppercase tracking-[0.3em] text-neutral-500 flex items-baseline justify-between gap-4 flex-wrap">
-        <span>Team's ideas — duplicates removed</span>
-        <span className="text-neutral-400 normal-case tracking-normal">
-          <span className="text-white font-bold tabular-nums">{totalIdeas}</span> ideas
-          across <span className="text-white font-bold tabular-nums">{filledCategories.length}</span> of 6 categories
-        </span>
-      </div>
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-x-10 gap-y-12">
-        {filledCategories.map((cat) => (
-          <CategoryZone key={cat.id} category={cat} ideas={byCategory[cat.id]}>
-            {byCategory[cat.id].map((idea) => {
-              const contributorNames = idea.participantIds
-                .map((pid) => participants.find((p) => p._id === pid)?.name)
-                .filter(Boolean);
-              return (
-                <StickyNote
-                  key={idea.id}
-                  text={idea.title}
-                  subtext={idea.summary}
-                  contributors={contributorNames}
-                  accentColor={cat.color}
-                  emphasized={contributorNames.length >= 2}
-                />
-              );
-            })}
-          </CategoryZone>
-        ))}
-      </div>
+    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-x-12 gap-y-16">
+      {filledCategories.map((cat, i) => (
+        <CategoryZone key={cat.id} category={cat} ideas={byCategory[cat.id]}>
+          {byCategory[cat.id].map((idea, j) => {
+            const contributorNames = idea.participantIds
+              .map((pid) => participants.find((p) => p._id === pid)?.name)
+              .filter(Boolean);
+            return (
+              <StickyNote
+                key={idea.id}
+                text={idea.title}
+                subtext={idea.summary}
+                contributors={contributorNames}
+                accentColor={cat.color}
+                emphasized={contributorNames.length >= 2}
+                delay={i * 80 + j * 50 + 200}
+              />
+            );
+          })}
+        </CategoryZone>
+      ))}
     </div>
   );
 }
@@ -284,57 +350,68 @@ function IdeasGrid({ ideas, participants }) {
 function CategoryZone({ category, ideas, children }) {
   return (
     <section>
-      <div
-        className="flex items-baseline gap-3 mb-4 pb-3 border-b"
-        style={{ borderColor: C.lightGray }}
-      >
+      <div className="flex items-baseline gap-3 mb-7 pb-4 border-b" style={{ borderColor: C.lightGray }}>
         <span
-          className="inline-block w-3 h-3 rounded-full flex-shrink-0"
-          style={{ background: category.color }}
+          className="inline-block w-2.5 h-2.5 flex-shrink-0"
+          style={{ background: category.color, borderRadius: "50%" }}
         />
-        <h2 className="text-lg font-bold tracking-tight">{category.title}</h2>
-        <span className="text-xs text-neutral-500 ml-auto tabular-nums">
+        <h2 className="text-xl font-bold tracking-tight" style={{ letterSpacing: "-0.01em" }}>
+          {category.title}
+        </h2>
+        <span
+          className="ml-auto text-xs font-bold uppercase tracking-[0.2em] tabular-nums"
+          style={{ color: C.darkGray }}
+        >
           {ideas.length}
         </span>
       </div>
-      <div className="space-y-3">{children}</div>
+      <div className="space-y-5">{children}</div>
     </section>
   );
 }
 
-function StickyNote({ text, subtext, contributors, accentColor, emphasized }) {
-  // Card surface is light gray on white; multi-contributor cards (emphasized)
-  // get a thicker accent stripe + the starred-bg pink wash + a contributor
-  // count badge in the category color.
+function StickyNote({ text, subtext, contributors, accentColor, emphasized, delay = 0 }) {
   return (
     <div
-      className="relative pl-5 pr-4 py-4 transition-transform"
+      className="relative pl-6 pr-5 py-5"
       style={{
         background: emphasized ? C.starredBg : C.surface,
         borderLeft: `${emphasized ? 4 : 2}px solid ${accentColor}`,
+        opacity: 0,
+        animation: `presentReveal 600ms ease-out ${delay}ms forwards`,
       }}
     >
       <p
-        className={`leading-snug ${emphasized ? "text-base font-semibold" : "text-[15px]"}`}
-        style={{ color: C.black }}
+        className={`leading-snug ${emphasized ? "font-bold" : ""}`}
+        style={{
+          fontSize: emphasized ? "1.0625rem" : "0.95rem",
+          color: C.black,
+          letterSpacing: emphasized ? "-0.005em" : "0",
+        }}
       >
         {text}
       </p>
       {subtext && emphasized && (
-        <p className="text-sm text-neutral-700 mt-2 leading-relaxed">
+        <p
+          className="mt-3 leading-relaxed"
+          style={{ fontSize: "0.875rem", color: C.darkGray }}
+        >
           {subtext}
         </p>
       )}
-      <div className="mt-3 flex items-center gap-2 flex-wrap">
+      <div className="mt-4 flex items-center gap-2 flex-wrap">
         {emphasized && contributors.length >= 2 && (
           <span
-            className="inline-flex items-center gap-1 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider rounded"
+            className="inline-flex items-center px-2 py-0.5 text-[10px] font-bold uppercase tracking-[0.18em]"
             style={{ background: accentColor, color: C.white }}
           >
             {contributors.length} ✕
           </span>
         )}
-        <span className="text-xs text-neutral-600">
+        <span
+          className="text-[11px] uppercase tracking-[0.15em] font-semibold"
+          style={{ color: C.darkGray }}
+        >
           {contributors.join(" · ")}
         </span>
       </div>
@@ -344,10 +421,32 @@ function StickyNote({ text, subtext, contributors, accentColor, emphasized }) {
 
 function CenteredMessage({ title, subtitle }) {
   return (
-    <div className="min-h-[60vh] flex items-center justify-center text-center">
+    <div
+      className="min-h-[55vh] flex items-center justify-center text-center"
+      style={{
+        opacity: 0,
+        animation: `presentReveal 700ms ease-out 200ms forwards`,
+      }}
+    >
       <div className="max-w-2xl">
-        <h2 className="text-3xl font-bold tracking-tight mb-3">{title}</h2>
-        <p className="text-lg text-neutral-600 leading-relaxed">{subtitle}</p>
+        <h2
+          className="font-bold tracking-tight mb-5"
+          style={{
+            fontSize: "clamp(2rem, 3vw, 2.75rem)",
+            letterSpacing: "-0.02em",
+          }}
+        >
+          {title}
+        </h2>
+        <p
+          className="leading-relaxed"
+          style={{
+            fontSize: "clamp(1rem, 1.2vw, 1.2rem)",
+            color: C.darkGray,
+          }}
+        >
+          {subtitle}
+        </p>
       </div>
     </div>
   );
