@@ -1,5 +1,18 @@
 # Team Primitives — Design Brief
 
+**This document is the original (pre-build) design spec.** It captured the design intent before any code was written. The app has since been built; for the canonical record of what was actually shipped + how it diverged from this spec, see `PLAN.md` → "Build status" section.
+
+**Notable divergences from this spec, as-built (~April 2026):**
+- **Screen 1 (AdminCreate)** is no longer a session-creation form. Sessions are created from the owner dashboard's "+ New workshop" modal. `/` is now a minimal landing pointing owners to their bookmark and participants to their join link, plus a "Lost your owner URL? Restore from backup" link. See PLAN.md divergence #1.
+- **"Cluster" was dropped as a user-facing concept.** Synthesis is "Team's ideas — duplicates removed." Internal data shape unchanged. See PLAN.md divergence #2.
+- **Voting unit = deduplicated idea**, not raw individual stars. See PLAN.md divergence #3.
+- **Screen 13 (OwnerRestore)** was added at `/owner/restore` for owner URL recovery via local backup file. See "Screen 13" added below.
+- **Editorial design language** with a consistent kicker-tick + small-caps tracked label + display title + hairline rule pattern was applied across all pages after Phase D. See CLAUDE.md → "Design Language (editorial broadcast)" section.
+
+The screen-by-screen specs below remain useful as design intent / copy references, but treat them as the original brief, not the as-built source of truth.
+
+---
+
 **Use this document as the source for designing screens with Claude.** Paste the whole brief for a comprehensive design pass, or copy individual screen sections to iterate one screen at a time. Every user-facing string is provided verbatim — do not invent copy.
 
 ---
@@ -83,7 +96,7 @@ Bold modern. High-contrast. Editorial magazine vibe. Black-and-white foundation 
 
 ## Screens to design (in user-flow order)
 
-12 screens total. Each has route, purpose, elements, copy (verbatim), and interactions.
+13 screens total (Screen 13 was added post-build for owner URL recovery). Each has route, purpose, elements, copy (verbatim), and interactions.
 
 ---
 
@@ -564,6 +577,57 @@ State D — voting closed:
 
 **Empty state (no sessions yet):**
 - Centered illustration-or-text: `No sessions yet. Sessions you create will appear here.`
+
+**Header buttons (as-built, post-launch addition):**
+- `[⬇ SAVE BACKUP]` (outlined, dark gray) — downloads `team-primitives-owner-<date>.json` containing the OWNER_KEY for safe storage. Tooltip: "Save your owner key as a JSON file for safe-keeping. Restore at /owner/restore."
+- `[⬇ EXPORT ALL AS ZIP]` (outlined, black) — bundles all sessions' top-ideas docx files into one ZIP. Disabled while bundling, shows `Bundling… 2/3` progress label.
+- `[+ NEW WORKSHOP]` (red primary) — opens session creation modal.
+
+---
+
+### Screen 13: OwnerRestore — Recover from a backup file
+
+**Route:** `/owner/restore`
+**Persona:** owner who lost their `/owner#k=...` bookmark
+**Device:** any (rare-use, but should work everywhere)
+
+**Purpose:** Owner drops a previously-saved backup JSON file; the app validates the embedded `ownerKey` against this Convex deployment and redirects to `/owner#k=<key>` so the existing fragment-based flow takes over (and the owner can re-bookmark).
+
+**Layout:**
+- Editorial centered layout matching the Join page tone
+- Single-column max-w-xl
+- Hero "Restore owner access" title + supporting copy
+- Dashed-border drop zone for the file
+- Inline error banner below the drop zone if validation fails
+- "No backup file?" CLI fallback footer
+
+**Elements & copy:**
+- Kicker: red tick + `OWNER · RESTORE` (small-caps, 0.32em tracking)
+- H1: `Restore owner access` (clamp 2.5rem to 3.75rem)
+- Body: `Drop in the **backup JSON file** you saved from your owner dashboard. We'll validate the key against this deployment and put you back into the dashboard.`
+- Drop zone (dashed border, hover bg neutral-50, padded 12rem):
+  - Upload icon centered
+  - Idle text: `Click to choose a backup file`
+  - Helper: `team-primitives-owner-*.json`
+  - When file selected (validating): shows the filename + helper text changes to `Restored — redirecting…` on success
+  - When validating in flight: text changes to `Validating…`
+- Error banner (red border-left + red-light bg, only shown on failure): `⚠ This key doesn't match the current deployment. The backup might be from a different environment (e.g., from prod when you're now on dev), or the OWNER_KEY env var has been rotated since this backup was made.`
+- Footer (small, muted, with monospace inline code):
+  - `**No backup file?** Run \`npx convex env set OWNER_KEY $(openssl rand -hex 16)\` to rotate the key, then visit \`/owner#k=<new-key>\` and immediately download a fresh backup.`
+
+**Interactions:**
+- File input accepts `application/json,.json`. On `change`:
+  1. Read file as text → JSON.parse → must contain `ownerKey: string`.
+  2. Call `useConvex().query(api.ownerQueries.listAllSessions, { ownerKey })`. If returns null → wrong key (validation fails).
+  3. On success → `navigate("/owner#k=" + encodeURIComponent(ownerKey), { replace: true })`.
+
+**Validation philosophy:** the backup file's `ownerKey` is the only thing that matters. Other fields (`convexUrl`, `savedAt`, `origin`) are informational, not enforced. This keeps recovery resilient (e.g., if VITE_CONVEX_URL changes between save and restore, recovery still works as long as the key matches the current deployment's OWNER_KEY env var).
+
+**Discovery:**
+- The bare `/` landing page has a "Lost your owner URL? Restore from backup →" link that takes someone here.
+- The owner dashboard's "Save backup" button has a tooltip mentioning "Restore at /owner/restore."
+
+**Mobile:** drop zone is just as functional on mobile (file picker), but recovery is realistically a desktop-only operation. Not a critical mobile flow.
 
 ---
 

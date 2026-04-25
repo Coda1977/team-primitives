@@ -107,11 +107,14 @@ The owner dashboard at `/owner` is THE home page. AdminCreate at `/` is just a m
 - **Phase E** (Word export wiring: `exportTopIdeasDocx`, `exportSynthesisDocx`, `exportParticipantDocx`) — ✅ DONE
 - **Phase G** (owner library: dashboard, create, delete cascade, per-row Word export, bulk ZIP) — ✅ DONE
 - **Phase F** (simulation harness `scripts/simulate-workshop.mjs` with persona-LLM, 3 function briefs, full end-to-end flow, report writer in `reports/<date>-<runId>/`) — ✅ DONE
+- **Owner URL recovery** (not in original plan): "Save backup" JSON download + `/owner/restore` route + recovery link on `/` landing — ✅ DONE
 
-**All planned phases complete.** Outstanding nice-to-haves only:
-- "Close session" admin toggle (low priority — admin can re-synthesize / re-open voting indefinitely; nothing forces a close)
-- More persona JSON files (only 3 of 10 in plan exist: hr, product-marketing, sales)
-- Optional: separate `team-primitives-staging` Convex deployment (currently sim runs against dev — fine for now since prod doesn't exist yet)
+**All planned phases (A–G) plus two ad-hoc additions (presentation view, owner URL recovery) shipped.** Genuinely outstanding work:
+- Production deployment (Convex prod + Vercel + prod env vars)
+- Mobile flow verification at 375×812 on real device
+- Anthropic tier 2 upgrade before real workshop usage
+- 7 more persona JSON files (only HR, Product Marketing, Sales exist)
+- Optional: "Close session" admin toggle, separate `team-primitives-staging` Convex deployment
 
 ## Git Workflow
 

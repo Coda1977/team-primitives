@@ -28,6 +28,14 @@ Target directory: `C:\Users\yonat\OneDrive\AI\Apps\Team Primitives`
 | E. Word export wiring | ✅ Done — three exports (Top Ideas, Full Board, Personal) wired into MyBoardView, AdminBoard, and OwnerDashboard per-row | commit `da619a6` |
 | G. Owner library extras | ✅ Done — bulk ZIP "Export all as ZIP" button at top of dashboard, fetches each session's bundle and zips top-ideas docx files | commit `4818135` |
 | F. Simulation harness | ✅ Done — `scripts/simulate-workshop.mjs` with persona-LLM (Anthropic-driven), 3 function briefs, full end-to-end flow, report writer | commit `2c7b699` |
+| Owner URL recovery (not in original plan) | ✅ Done — "Save backup" button downloads JSON of OWNER_KEY; `/owner/restore` route validates + redirects | commits `271d66a`, `83c772f` |
+
+**All originally-planned phases (A–G) and the two ad-hoc additions (presentation view, owner URL recovery) are shipped.** Genuinely outstanding work:
+- Production deployment (Convex prod + Vercel + prod env vars)
+- Mobile flow verification at 375×812 on real device
+- Anthropic tier 2 upgrade before any real workshop
+- 7 more persona JSON files (only HR, Product Marketing, Sales exist)
+- Optional: "Close session" admin toggle, separate staging Convex deployment
 
 ### Key divergences from the original plan
 
@@ -50,6 +58,8 @@ These came up during build and the plan above doesn't fully reflect them — her
 **8. `useEffect` strict-mode bug fix in OwnerDashboard.** React 19 strict mode runs `useEffect` twice in dev. The OwnerDashboard's hash-key parser was redirecting on the second run because the URL fragment had been stripped. Fix: module-scoped `KEY_CACHE` + `processed.current` ref to make hash parsing idempotent across remounts.
 
 **9. `"use node"` files cannot contain mutations.** The first attempt put `writeGeneratedIdeas` (an `internalMutation`) in `convex/ai/generateCanvas.ts` (which is `"use node"` for Anthropic SDK). Convex rejected the push. Fix: internal mutations live in `convex/aiInternal.ts` (V8 runtime); only `action`s live in `convex/ai/*.ts` (Node runtime). Action calls mutation via `ctx.runMutation(internal.aiInternal.writeGeneratedIdeas, ...)`.
+
+**10. Owner URL recovery added.** The plan originally accepted "Admin URL loss has no recovery path in MVP" as a known limitation. After Phase F shipped, we added a local-backup recovery option: `OwnerDashboard` → "Save backup" downloads `team-primitives-owner-<date>.json` (~419 bytes: `version`, `ownerKey`, `convexUrl`, `savedAt`, `origin`, `note`). Visit `/owner/restore`, drop the file, validation calls `listAllSessions(ownerKey)` (returns null on mismatch) → redirect to `/owner#k=...` so the existing fragment-based flow takes over. The `/` landing page got a "Lost your owner URL? Restore from backup" link so someone with no bookmark can find recovery. Backup files are plaintext — store like any other secret. CLI fallback (`npx convex env set OWNER_KEY $(openssl rand -hex 16)`) is documented inline on the restore page.
 
 ### Working end-to-end test data (PM-P602)
 
