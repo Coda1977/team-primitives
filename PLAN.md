@@ -26,8 +26,8 @@ Target directory: `C:\Users\yonat\OneDrive\AI\Apps\Team Primitives`
 | Presentation view (`/s/:code/present`) | ✅ Done — added per user feedback during build; light-mode editorial broadcast layout; live-mirrors session state | commits `de07932`, `d538d67` |
 | Editorial design pass (all pages) | ✅ Done — broadcast hierarchy applied to Join, IntakeView, OwnerDashboard, AdminBoard, VoteView, MyBoardView tabs | commit `ef77a58` |
 | E. Word export wiring | ✅ Done — three exports (Top Ideas, Full Board, Personal) wired into MyBoardView, AdminBoard, and OwnerDashboard per-row | commit `da619a6` |
-| F. Simulation harness | TODO | — |
-| G. Owner library extras | Partial — dashboard + create + delete + per-row Word export shipped; bulk ZIP still TODO | commit `da619a6` |
+| G. Owner library extras | ✅ Done — bulk ZIP "Export all as ZIP" button at top of dashboard, fetches each session's bundle and zips top-ideas docx files | commit `4818135` |
+| F. Simulation harness | ✅ Done — `scripts/simulate-workshop.mjs` with persona-LLM (Anthropic-driven), 3 function briefs, full end-to-end flow, report writer | commit `2c7b699` |
 
 ### Key divergences from the original plan
 
