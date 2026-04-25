@@ -9,9 +9,11 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { useMutation, useQuery } from "convex/react";
+import { useMutation, useQuery, useConvex } from "convex/react";
+import { Download } from "lucide-react";
 import { api } from "../../convex/_generated/api";
 import { C } from "../config/constants";
+import { exportTopIdeasDocx } from "../utils/export";
 
 // Module-scoped cache: in React 19 strict mode useEffect runs twice; the
 // second run would see an already-stripped hash and incorrectly redirect.
@@ -82,8 +84,39 @@ const FADE_KEYFRAMES = `
 `;
 
 function DashboardInner({ ownerKey, sessions }) {
+  const convex = useConvex();
   const [creating, setCreating] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState(null); // session row to confirm delete
+  const [downloadingId, setDownloadingId] = useState(null);
+
+  const onDownload = async (session) => {
+    setDownloadingId(session._id);
+    try {
+      const bundle = await convex.query(api.ownerQueries.getSessionExportBundle, {
+        ownerKey,
+        sessionId: session._id,
+      });
+      if (!bundle) throw new Error("Could not fetch session data");
+      if (bundle.ranked.length === 0) {
+        // Pre-vote: nothing to rank yet — user-friendly notice
+        alert(
+          "This session has no ranked ideas yet. Run synthesis and voting from the admin board first."
+        );
+        return;
+      }
+      await exportTopIdeasDocx({
+        session: bundle.session,
+        ranked: bundle.ranked,
+        totalVotes: bundle.totalVotes,
+        participants: bundle.participants,
+      });
+    } catch (err) {
+      console.error("Export failed", err);
+      alert("Export failed: " + (err?.message ?? "unknown error"));
+    } finally {
+      setDownloadingId(null);
+    }
+  };
 
   const totalSessions = sessions.length;
   const totalParticipants = sessions.reduce((s, x) => s + x.participantCount, 0);
@@ -166,6 +199,8 @@ function DashboardInner({ ownerKey, sessions }) {
           <SessionsTable
             sessions={sessions}
             onDelete={(s) => setDeleteTarget(s)}
+            onDownload={onDownload}
+            downloadingId={downloadingId}
           />
         )}
       </div>
@@ -224,7 +259,7 @@ function EmptyState({ onCreate }) {
   );
 }
 
-function SessionsTable({ sessions, onDelete }) {
+function SessionsTable({ sessions, onDelete, onDownload, downloadingId }) {
   return (
     <div
       className="overflow-x-auto"
@@ -251,6 +286,8 @@ function SessionsTable({ sessions, onDelete }) {
               key={s._id}
               session={s}
               onDelete={() => onDelete(s)}
+              onDownload={() => onDownload(s)}
+              isDownloading={downloadingId === s._id}
               delay={300 + idx * 60}
             />
           ))}
@@ -271,7 +308,7 @@ function Th({ children, align = "left" }) {
   );
 }
 
-function SessionRow({ session, onDelete, delay = 0 }) {
+function SessionRow({ session, onDelete, onDownload, isDownloading, delay = 0 }) {
   const adminUrl = `${window.location.origin}${session.adminUrl}`;
   const created = new Date(session.createdAt).toISOString().slice(0, 10);
   const top = session.topVotedIdea;
@@ -340,6 +377,16 @@ function SessionRow({ session, onDelete, delay = 0 }) {
           >
             Open
           </a>
+          <button
+            onClick={onDownload}
+            disabled={isDownloading}
+            className="px-3 py-1.5 text-[10px] font-semibold uppercase tracking-[0.18em] border transition-colors hover:bg-black hover:text-white disabled:opacity-40 disabled:cursor-wait inline-flex items-center gap-1"
+            style={{ borderColor: C.darkGray }}
+            title="Download top ideas as Word"
+          >
+            <Download size={11} />
+            {isDownloading ? "…" : "DOC"}
+          </button>
           <button
             onClick={onDelete}
             className="px-3 py-1.5 text-[10px] font-semibold uppercase tracking-[0.18em] border transition-colors hover:bg-red-50"

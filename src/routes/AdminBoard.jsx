@@ -3,12 +3,13 @@
 // Editorial control room — strong typographic hierarchy, refined section
 // labels, no heavy chrome.
 
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { useParams, useSearchParams, Navigate } from "react-router-dom";
 import { useQuery } from "convex/react";
-import { Tv } from "lucide-react";
+import { Tv, Download } from "lucide-react";
 import { api } from "../../convex/_generated/api";
 import { C } from "../config/constants";
+import { exportTopIdeasDocx, exportSynthesisDocx } from "../utils/export";
 import ShareLinkPanel from "../components/admin/ShareLinkPanel";
 import RosterPanel from "../components/admin/RosterPanel";
 import RawStarredList from "../components/admin/RawStarredList";
@@ -62,6 +63,14 @@ function AdminInner({ session, adminKey }) {
     sessionId: session._id,
     adminKey,
   });
+  const rankedResults = useQuery(api.votes.getRankedResults, {
+    sessionId: session._id,
+  });
+  const adminTallies = useQuery(api.votes.getAdminTallies, {
+    sessionId: session._id,
+    adminKey,
+  });
+  const [exporting, setExporting] = useState(false);
 
   const lockedCount = useMemo(
     () => (participants ?? []).filter((p) => p.phase === "locked").length,
@@ -238,6 +247,76 @@ function AdminInner({ session, adminKey }) {
                 <div className="pt-6 mt-6 border-t" style={{ borderColor: C.lightGray }}>
                   <VotingControlsPanel session={session} adminKey={adminKey} />
                 </div>
+                {(rankedResults?.ranked?.length > 0 ||
+                  adminTallies?.ranked?.length > 0) && (
+                  <div
+                    className="pt-6 mt-6 border-t"
+                    style={{ borderColor: C.lightGray }}
+                  >
+                    <SectionHeader
+                      kicker="Export"
+                      title="Download workshop"
+                      subtitle="Share results with stakeholders"
+                      small
+                    />
+                    <div className="flex flex-wrap gap-3">
+                      <button
+                        disabled={exporting}
+                        onClick={async () => {
+                          setExporting(true);
+                          try {
+                            const ranked =
+                              rankedResults?.ranked ?? adminTallies?.ranked ?? [];
+                            await exportTopIdeasDocx({
+                              session,
+                              ranked,
+                              totalVotes:
+                                rankedResults?.ranked?.reduce(
+                                  (s, x) => s + x.voteCount,
+                                  0
+                                ) ?? adminTallies?.totalVotes ?? 0,
+                              participants: participants ?? [],
+                            });
+                          } catch (err) {
+                            console.error("Top ideas export failed", err);
+                          } finally {
+                            setExporting(false);
+                          }
+                        }}
+                        className="px-4 py-2.5 text-xs font-semibold uppercase tracking-[0.18em] inline-flex items-center gap-2 disabled:opacity-50"
+                        style={{ background: C.red, color: C.white }}
+                      >
+                        <Download size={13} /> Top ideas (Word)
+                      </button>
+                      <button
+                        disabled={exporting}
+                        onClick={async () => {
+                          setExporting(true);
+                          try {
+                            await exportSynthesisDocx({
+                              session,
+                              ranked:
+                                rankedResults?.ranked ??
+                                adminTallies?.ranked ??
+                                [],
+                              synthesis,
+                              starred: starred ?? [],
+                              participants: participants ?? [],
+                            });
+                          } catch (err) {
+                            console.error("Full board export failed", err);
+                          } finally {
+                            setExporting(false);
+                          }
+                        }}
+                        className="px-4 py-2.5 text-xs font-semibold uppercase tracking-[0.18em] inline-flex items-center gap-2 border disabled:opacity-50 hover:bg-black hover:text-white transition-colors"
+                        style={{ borderColor: C.black }}
+                      >
+                        <Download size={13} /> Full board (Word)
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
             )}
           </section>

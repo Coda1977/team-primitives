@@ -141,6 +141,132 @@ export const createSessionAsOwner = mutation({
   },
 });
 
+// Bundles everything an export needs for a single session. Owner-gated.
+export const getSessionExportBundle = query({
+  args: { ownerKey: v.string(), sessionId: v.id("sessions") },
+  handler: async (ctx, args) => {
+    if (!validate(args.ownerKey)) return null;
+
+    const session = await ctx.db.get(args.sessionId);
+    if (!session) return null;
+
+    const participants = await ctx.db
+      .query("participants")
+      .withIndex("by_session", (q) => q.eq("sessionId", args.sessionId))
+      .collect();
+
+    // Hydrate participant lookup
+    const participantById = new Map<string, { name: string; slug: string }>();
+    for (const p of participants) {
+      participantById.set(p._id as unknown as string, { name: p.name, slug: p.slug });
+    }
+
+    const starred = await ctx.db
+      .query("ideas")
+      .withIndex("by_session_starred", (q) =>
+        q.eq("sessionId", args.sessionId).eq("starred", true)
+      )
+      .collect();
+
+    const starredWithNames = starred.map((idea) => ({
+      _id: idea._id,
+      text: idea.text,
+      categoryId: idea.categoryId,
+      participantId: idea.participantId,
+      participantName:
+        participantById.get(idea.participantId as unknown as string)?.name ?? "(unknown)",
+      createdAt: idea.createdAt,
+    }));
+
+    const synthesis = await ctx.db
+      .query("synthesis")
+      .withIndex("by_session_ran", (q) => q.eq("sessionId", args.sessionId))
+      .order("desc")
+      .first();
+
+    // Compute ranked results from votes if any exist
+    const allVotes = await ctx.db
+      .query("votes")
+      .withIndex("by_session", (q) => q.eq("sessionId", args.sessionId))
+      .collect();
+
+    const voteCountByIdea = new Map<string, number>();
+    for (const vote of allVotes) {
+      const k = vote.ideaId as unknown as string;
+      voteCountByIdea.set(k, (voteCountByIdea.get(k) ?? 0) + 1);
+    }
+
+    const ideasById = new Map<string, any>();
+    for (const idea of starred) {
+      ideasById.set(idea._id as unknown as string, idea);
+    }
+
+    let ranked: any[] = [];
+    if (synthesis && synthesis.status === "ready") {
+      ranked = synthesis.clusters
+        .map((cluster: any) => {
+          let voteCount = 0;
+          let earliestCreatedAt = Number.MAX_SAFE_INTEGER;
+          for (const ideaId of cluster.memberIdeaIds as any[]) {
+            const k = ideaId as unknown as string;
+            voteCount += voteCountByIdea.get(k) ?? 0;
+            const idea = ideasById.get(k);
+            if (idea && idea.createdAt < earliestCreatedAt) {
+              earliestCreatedAt = idea.createdAt;
+            }
+          }
+          const contributorNames = cluster.participantIds
+            .map((pid: any) => participantById.get(pid as unknown as string)?.name)
+            .filter(Boolean);
+          return {
+            id: cluster.id,
+            title: cluster.title,
+            summary: cluster.summary,
+            categoryId: cluster.categoryId,
+            memberIdeaIds: cluster.memberIdeaIds,
+            participantIds: cluster.participantIds,
+            contributorNames,
+            voteCount,
+            earliestCreatedAt,
+          };
+        })
+        .sort((a: any, b: any) => {
+          if (b.voteCount !== a.voteCount) return b.voteCount - a.voteCount;
+          return a.earliestCreatedAt - b.earliestCreatedAt;
+        });
+    }
+
+    return {
+      session: {
+        _id: session._id,
+        code: session.code,
+        functionName: session.functionName,
+        teamSize: session.teamSize,
+        industry: session.industry,
+        votingStatus: session.votingStatus,
+        votesPerParticipant: session.votesPerParticipant,
+        createdAt: session.createdAt,
+      },
+      participants: participants.map((p) => ({
+        _id: p._id,
+        name: p.name,
+        slug: p.slug,
+        phase: p.phase,
+      })),
+      starred: starredWithNames,
+      synthesis: synthesis
+        ? {
+            status: synthesis.status,
+            ranAt: synthesis.ranAt,
+            clusters: synthesis.clusters,
+          }
+        : null,
+      ranked,
+      totalVotes: allVotes.length,
+    };
+  },
+});
+
 // Owner-gated session deletion (cascades through all related tables).
 export const deleteSessionAsOwner = mutation({
   args: { ownerKey: v.string(), sessionId: v.id("sessions") },

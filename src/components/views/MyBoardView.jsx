@@ -11,6 +11,7 @@ import { api } from "../../../convex/_generated/api";
 import { CATEGORIES } from "../../config/categories";
 import { C } from "../../config/constants";
 import { clearParticipantId } from "../../utils/localParticipant";
+import { exportParticipantDocx } from "../../utils/export";
 import VoteView from "./VoteView";
 import RankedIdeasView from "./RankedIdeasView";
 
@@ -144,10 +145,15 @@ export default function MyBoardView({ session, participant }) {
           style={{ borderColor: C.lightGray }}
         >
           <button
-            disabled
-            className="px-5 py-3 text-sm font-semibold uppercase tracking-wider opacity-50 cursor-not-allowed border flex items-center gap-2"
-            style={{ borderColor: C.lightGray }}
-            title="Personal docx export — coming in Phase E polish"
+            onClick={async () => {
+              try {
+                await exportParticipantDocx({ session, participant, canvas });
+              } catch (err) {
+                console.error("Export failed", err);
+              }
+            }}
+            className="px-5 py-3 text-sm font-semibold uppercase tracking-[0.18em] border flex items-center gap-2 hover:bg-black hover:text-white transition-colors"
+            style={{ borderColor: C.black }}
           >
             <Download size={14} /> Download my ideas (Word)
           </button>
