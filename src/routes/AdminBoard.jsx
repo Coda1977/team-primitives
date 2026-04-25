@@ -4,6 +4,7 @@
 import { useMemo } from "react";
 import { useParams, useSearchParams, Navigate } from "react-router-dom";
 import { useQuery } from "convex/react";
+import { Tv } from "lucide-react";
 import { api } from "../../convex/_generated/api";
 import { C } from "../config/constants";
 import ShareLinkPanel from "../components/admin/ShareLinkPanel";
@@ -70,7 +71,7 @@ function AdminInner({ session, adminKey }) {
     <main className="min-h-screen bg-white text-black px-6 py-6">
       <div className="max-w-7xl mx-auto">
         <header
-          className="flex items-center justify-between mb-6 pb-4 border-b"
+          className="flex items-center justify-between mb-6 pb-4 border-b gap-4 flex-wrap"
           style={{ borderColor: C.lightGray }}
         >
           <div className="flex items-baseline gap-4 flex-wrap">
@@ -81,6 +82,17 @@ function AdminInner({ session, adminKey }) {
               Manage the workshop in real time
             </span>
           </div>
+          <a
+            href={`/s/${session.code}/present?k=${adminKey}`}
+            target="_blank"
+            rel="noreferrer"
+            className="inline-flex items-center gap-2 px-4 py-2 text-xs font-semibold uppercase tracking-wider border hover:bg-black hover:text-white transition-colors"
+            style={{ borderColor: C.black }}
+            title="Open the projector-friendly view in a new tab"
+          >
+            <Tv size={14} />
+            Open presentation
+          </a>
         </header>
 
         <ShareLinkPanel session={session} adminKey={adminKey} />
@@ -151,7 +163,7 @@ function AdminInner({ session, adminKey }) {
             {hasReady && synthesis.clusters.length > 0 && (
               <div className="space-y-3">
                 <h3 className="text-sm font-bold tracking-tight uppercase text-neutral-600">
-                  Synthesized clusters ({synthesis.clusters.length})
+                  Team's ideas — duplicates removed ({synthesis.clusters.length})
                 </h3>
                 {synthesis.clusters.map((cluster) => (
                   <ClusterCard
