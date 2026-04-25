@@ -13,7 +13,7 @@ import { useMutation, useQuery, useConvex } from "convex/react";
 import { Download } from "lucide-react";
 import { api } from "../../convex/_generated/api";
 import { C } from "../config/constants";
-import { exportTopIdeasDocx } from "../utils/export";
+import { exportTopIdeasDocx, exportAllSessionsZip } from "../utils/export";
 
 // Module-scoped cache: in React 19 strict mode useEffect runs twice; the
 // second run would see an already-stripped hash and incorrectly redirect.
@@ -88,6 +88,34 @@ function DashboardInner({ ownerKey, sessions }) {
   const [creating, setCreating] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState(null); // session row to confirm delete
   const [downloadingId, setDownloadingId] = useState(null);
+  const [zipState, setZipState] = useState({ active: false, current: 0, total: 0 });
+
+  const onExportAll = async () => {
+    if (zipState.active) return;
+    setZipState({ active: true, current: 0, total: sessions.length });
+    try {
+      const result = await exportAllSessionsZip({
+        sessions,
+        fetchBundle: (sessionId) =>
+          convex.query(api.ownerQueries.getSessionExportBundle, {
+            ownerKey,
+            sessionId,
+          }),
+        onProgress: ({ current, total, sessionCode }) => {
+          setZipState({ active: true, current, total, sessionCode });
+        },
+      });
+      const summary = `Bundled ${result.included} session${
+        result.included === 1 ? "" : "s"
+      }${result.skipped ? `, skipped ${result.skipped} (pre-vote)` : ""}.`;
+      // Quick toast-style feedback. window.alert is acceptable for this rare action.
+      console.log("Bulk export complete:", summary);
+    } catch (err) {
+      alert(err?.message ?? "Bulk export failed");
+    } finally {
+      setZipState({ active: false, current: 0, total: 0 });
+    }
+  };
 
   const onDownload = async (session) => {
     setDownloadingId(session._id);
@@ -182,13 +210,29 @@ function DashboardInner({ ownerKey, sessions }) {
                 )}
               </div>
             </div>
-            <button
-              onClick={() => setCreating(true)}
-              className="px-6 py-3.5 text-xs font-semibold uppercase tracking-[0.22em] inline-flex items-center gap-2"
-              style={{ background: C.red, color: C.white }}
-            >
-              <span aria-hidden="true">+</span> New workshop
-            </button>
+            <div className="flex items-center gap-3 flex-wrap">
+              {sessions.length > 0 && (
+                <button
+                  onClick={onExportAll}
+                  disabled={zipState.active}
+                  className="px-4 py-3 text-[10px] font-semibold uppercase tracking-[0.22em] inline-flex items-center gap-2 border disabled:opacity-50 hover:bg-black hover:text-white transition-colors"
+                  style={{ borderColor: C.black }}
+                  title="Bundle all sessions with ranked results into a ZIP"
+                >
+                  <Download size={12} />
+                  {zipState.active
+                    ? `Bundling… ${zipState.current}/${zipState.total}`
+                    : "Export all as ZIP"}
+                </button>
+              )}
+              <button
+                onClick={() => setCreating(true)}
+                className="px-6 py-3.5 text-xs font-semibold uppercase tracking-[0.22em] inline-flex items-center gap-2"
+                style={{ background: C.red, color: C.white }}
+              >
+                <span aria-hidden="true">+</span> New workshop
+              </button>
+            </div>
           </div>
           <hr className="border-0 h-px" style={{ background: C.lightGray }} />
         </header>

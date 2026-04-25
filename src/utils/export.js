@@ -7,6 +7,10 @@
 //    + raw breakdown by participant.
 // 3. exportParticipantDocx — personal export: a participant's own canvas
 //    (all ideas, starred ones marked).
+//
+// Each public function accepts `{ save = true }`. When save is true (default),
+// triggers a browser download via file-saver. When false, returns
+// `{ blob, filename }` so the caller can bundle into a zip etc.
 
 import {
   Document,
@@ -18,6 +22,7 @@ import {
   BorderStyle,
 } from "docx";
 import { saveAs } from "file-saver";
+import JSZip from "jszip";
 import { CATEGORIES } from "../config/categories";
 
 // ---------------- helpers ----------------
@@ -90,7 +95,7 @@ function sectionHeader(text, opts = {}) {
 // Post-vote ranked list — the primary deliverable a facilitator hands back
 // to the group. Cover + Top 3 + Full ranked list + methodology footer.
 
-export async function exportTopIdeasDocx({ session, ranked, totalVotes, participants }) {
+export async function exportTopIdeasDocx({ session, ranked, totalVotes, participants, save = true }) {
   if (!ranked || ranked.length === 0) {
     throw new Error("No ranked ideas to export");
   }
@@ -325,14 +330,16 @@ export async function exportTopIdeasDocx({ session, ranked, totalVotes, particip
 
   const doc = new Document({ sections: [{ children }] });
   const blob = await Packer.toBlob(doc);
-  saveAs(blob, `${safeFilename(session.functionName)}-top-ideas.docx`);
+  const filename = `${safeFilename(session.functionName)}-${session.code}-top-ideas.docx`;
+  if (save !== false) saveAs(blob, filename);
+  return { blob, filename };
 }
 
 // ---------------- 2. exportSynthesisDocx ----------------
 // Full board: synthesized themes + raw breakdown by participant. Optional
 // secondary export.
 
-export async function exportSynthesisDocx({ session, ranked, synthesis, starred, participants }) {
+export async function exportSynthesisDocx({ session, ranked, synthesis, starred, participants, save = true }) {
   if (!synthesis || synthesis.status !== "ready") {
     throw new Error("No synthesis to export");
   }
@@ -536,13 +543,15 @@ export async function exportSynthesisDocx({ session, ranked, synthesis, starred,
 
   const doc = new Document({ sections: [{ children }] });
   const blob = await Packer.toBlob(doc);
-  saveAs(blob, `${safeFilename(session.functionName)}-full-board.docx`);
+  const filename = `${safeFilename(session.functionName)}-${session.code}-full-board.docx`;
+  if (save !== false) saveAs(blob, filename);
+  return { blob, filename };
 }
 
 // ---------------- 3. exportParticipantDocx ----------------
 // Personal: one participant's own canvas.
 
-export async function exportParticipantDocx({ session, participant, canvas }) {
+export async function exportParticipantDocx({ session, participant, canvas, save = true }) {
   const children = [];
 
   children.push(kicker("Team Primitives · Personal"));
@@ -651,8 +660,61 @@ export async function exportParticipantDocx({ session, participant, canvas }) {
 
   const doc = new Document({ sections: [{ children }] });
   const blob = await Packer.toBlob(doc);
-  saveAs(
-    blob,
-    `${safeFilename(session.functionName)}-${participant.slug}-ideas.docx`
-  );
+  const filename = `${safeFilename(session.functionName)}-${participant.slug}-ideas.docx`;
+  if (save !== false) saveAs(blob, filename);
+  return { blob, filename };
+}
+
+// ---------------- 4. exportAllSessionsZip ----------------
+// Bulk export: top-ideas docx for every session that has ranked results,
+// zipped up as a single download. Sessions with no ranked ideas (pre-vote)
+// are skipped silently. Caller provides a fetchBundle function that returns
+// the export bundle for a given sessionId.
+
+export async function exportAllSessionsZip({ sessions, fetchBundle, onProgress }) {
+  if (!sessions || sessions.length === 0) {
+    throw new Error("No sessions to export");
+  }
+  const zip = new JSZip();
+  let included = 0;
+  let skipped = 0;
+  const errors = [];
+
+  for (let i = 0; i < sessions.length; i++) {
+    const s = sessions[i];
+    onProgress?.({ current: i + 1, total: sessions.length, sessionCode: s.code });
+    try {
+      const bundle = await fetchBundle(s._id);
+      if (!bundle || !bundle.ranked || bundle.ranked.length === 0) {
+        skipped += 1;
+        continue;
+      }
+      const { blob, filename } = await exportTopIdeasDocx({
+        session: bundle.session,
+        ranked: bundle.ranked,
+        totalVotes: bundle.totalVotes,
+        participants: bundle.participants,
+        save: false,
+      });
+      zip.file(filename, blob);
+      included += 1;
+    } catch (err) {
+      errors.push({ code: s.code, message: err?.message ?? String(err) });
+    }
+  }
+
+  if (included === 0) {
+    throw new Error(
+      `No sessions had ranked results to export${
+        skipped ? ` (${skipped} skipped: pre-vote)` : ""
+      }${errors.length ? `; ${errors.length} errored` : ""}.`
+    );
+  }
+
+  const zipBlob = await zip.generateAsync({ type: "blob" });
+  const ts = new Date().toISOString().slice(0, 10);
+  const filename = `team-primitives-${ts}.zip`;
+  saveAs(zipBlob, filename);
+
+  return { included, skipped, errors, filename };
 }
