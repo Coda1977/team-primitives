@@ -10,6 +10,8 @@ import { mutation, query } from "./_generated/server";
 import { v } from "convex/values";
 import { Id } from "./_generated/dataModel";
 import { bumpActivity } from "./participants";
+import { rankClusters } from "./lib/ranking";
+import { timingSafeEqual } from "./lib/auth";
 
 const DEFAULT_VOTES_PER_PARTICIPANT = 3;
 
@@ -24,7 +26,7 @@ export const openVoting = mutation({
   handler: async (ctx, args) => {
     const session = await ctx.db.get(args.sessionId);
     if (!session) throw new Error("Session not found");
-    if (session.adminKey !== args.adminKey) throw new Error("Invalid admin key");
+    if (!timingSafeEqual(session.adminKey, args.adminKey)) throw new Error("Invalid admin key");
 
     const budget = Math.floor(args.votesPerParticipant);
     if (budget < 1) throw new Error("votesPerParticipant must be at least 1");
@@ -74,7 +76,7 @@ export const closeVoting = mutation({
   handler: async (ctx, args) => {
     const session = await ctx.db.get(args.sessionId);
     if (!session) throw new Error("Session not found");
-    if (session.adminKey !== args.adminKey) throw new Error("Invalid admin key");
+    if (!timingSafeEqual(session.adminKey, args.adminKey)) throw new Error("Invalid admin key");
     if (session.votingStatus === "idle") {
       throw new Error("Voting was never opened");
     }
@@ -190,7 +192,9 @@ export const listMyVotes = query({
 
 // ---------- Tallies ----------
 
-// Helper used by both admin (live during open) and the post-close ranked view.
+// Loads the latest ready synthesis + all votes/ideas needed to rank, then
+// delegates to the shared `rankClusters` helper. Used by both admin (live
+// during open) and the post-close ranked view.
 async function computeRankedClusters(
   ctx: any,
   sessionId: Id<"sessions">,
@@ -203,70 +207,23 @@ async function computeRankedClusters(
     .first();
   if (!synthesis || synthesis.status !== "ready") return [];
 
-  const allVotes = await ctx.db
-    .query("votes")
-    .withIndex("by_session", (q: any) => q.eq("sessionId", sessionId))
-    .collect();
+  const [allVotes, sessionIdeas] = await Promise.all([
+    ctx.db
+      .query("votes")
+      .withIndex("by_session", (q: any) => q.eq("sessionId", sessionId))
+      .collect(),
+    ctx.db
+      .query("ideas")
+      .withIndex("by_session_starred", (q: any) => q.eq("sessionId", sessionId))
+      .collect(),
+  ]);
 
-  // Build ideaId -> count map
-  const voteCountByIdea = new Map<string, number>();
-  for (const vote of allVotes) {
-    const k = vote.ideaId as unknown as string;
-    voteCountByIdea.set(k, (voteCountByIdea.get(k) ?? 0) + 1);
-  }
-
-  const participantById = new Map<string, string>();
-  for (const p of participantsList) {
-    participantById.set(p._id as unknown as string, p.name);
-  }
-
-  // For each cluster, aggregate votes across its memberIdeaIds.
-  // Tie-break: by ideas.createdAt ascending (first-contributed wins).
-  const ideasById = new Map<string, any>();
-  // We need ideas.createdAt for tie-break; fetch all ideas in the session
-  const sessionIdeas = await ctx.db
-    .query("ideas")
-    .withIndex("by_session_starred", (q: any) => q.eq("sessionId", sessionId))
-    .collect();
-  for (const idea of sessionIdeas) {
-    ideasById.set(idea._id as unknown as string, idea);
-  }
-
-  const ranked = synthesis.clusters.map((cluster: any) => {
-    let voteCount = 0;
-    let earliestCreatedAt = Number.MAX_SAFE_INTEGER;
-    for (const ideaId of cluster.memberIdeaIds as any[]) {
-      const k = ideaId as unknown as string;
-      voteCount += voteCountByIdea.get(k) ?? 0;
-      const idea = ideasById.get(k);
-      if (idea && idea.createdAt < earliestCreatedAt) {
-        earliestCreatedAt = idea.createdAt;
-      }
-    }
-    const contributorNames = cluster.participantIds
-      .map((pid: any) => participantById.get(pid as unknown as string))
-      .filter(Boolean);
-    return {
-      id: cluster.id,
-      title: cluster.title,
-      summary: cluster.summary,
-      categoryId: cluster.categoryId,
-      anchorIdeaId: cluster.memberIdeaIds[0],
-      memberIdeaIds: cluster.memberIdeaIds,
-      participantIds: cluster.participantIds,
-      contributorNames,
-      voteCount,
-      earliestCreatedAt,
-    };
+  return rankClusters({
+    clusters: synthesis.clusters,
+    ideas: sessionIdeas,
+    votes: allVotes,
+    participants: participantsList,
   });
-
-  // Primary sort: vote count desc; tie-break: earliestCreatedAt asc
-  ranked.sort((a, b) => {
-    if (b.voteCount !== a.voteCount) return b.voteCount - a.voteCount;
-    return a.earliestCreatedAt - b.earliestCreatedAt;
-  });
-
-  return ranked;
 }
 
 // Admin-gated live tallies (visible only to admin while voting is open).
@@ -275,7 +232,7 @@ export const getAdminTallies = query({
   handler: async (ctx, args) => {
     const session = await ctx.db.get(args.sessionId);
     if (!session) return null;
-    if (session.adminKey !== args.adminKey) return null;
+    if (!timingSafeEqual(session.adminKey, args.adminKey)) return null;
 
     const participants = await ctx.db
       .query("participants")

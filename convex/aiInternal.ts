@@ -4,6 +4,7 @@
 
 import { internalMutation, internalQuery } from "./_generated/server";
 import { v } from "convex/values";
+import { timingSafeEqual } from "./lib/auth";
 
 export const getParticipantInternal = internalQuery({
   args: { participantId: v.id("participants") },
@@ -75,6 +76,38 @@ export const listChatHistoryInternal = internalQuery({
   },
 });
 
+// Counts user-role chat turns for a (participant, category) — drives the
+// per-category chatRefine quota so a single participant link can't be used
+// to spam the Anthropic API.
+export const countUserChatTurnsInternal = internalQuery({
+  args: {
+    participantId: v.id("participants"),
+    categoryId: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const rows = await ctx.db
+      .query("chatMessages")
+      .withIndex("by_participant_category", (q) =>
+        q.eq("participantId", args.participantId).eq("categoryId", args.categoryId)
+      )
+      .collect();
+    return rows.filter((r) => r.role === "user").length;
+  },
+});
+
+// Counts synthesis runs (any status) for a session — drives the lifetime
+// re-synthesis quota.
+export const countSynthesisRunsInternal = internalQuery({
+  args: { sessionId: v.id("sessions") },
+  handler: async (ctx, args) => {
+    const runs = await ctx.db
+      .query("synthesis")
+      .withIndex("by_session_ran", (q) => q.eq("sessionId", args.sessionId))
+      .collect();
+    return runs.length;
+  },
+});
+
 export const appendChatInternal = internalMutation({
   args: {
     participantId: v.id("participants"),
@@ -115,7 +148,7 @@ export const getSessionByAdminKeyInternal = internalQuery({
   handler: async (ctx, args) => {
     const session = await ctx.db.get(args.sessionId);
     if (!session) return null;
-    if (session.adminKey !== args.adminKey) return null;
+    if (!timingSafeEqual(session.adminKey, args.adminKey)) return null;
     return session;
   },
 });

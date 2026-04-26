@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { Star, Pencil, Trash2 } from "lucide-react";
 import { C } from "../../config/constants";
-import { useToast } from "../../context/ToastContext";
+import { useToast } from "../../context/useToast";
 
 export default function IdeaCard({ idea, categoryId, dispatch, isNew }) {
   const { showToast } = useToast();

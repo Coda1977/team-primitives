@@ -75,9 +75,9 @@ src/components/primitives/   # IdeaCard, CategorySection, AddIdeaInput
 src/components/admin/        # RosterPanel, RawStarredList, SynthesizeButton, ClusterCard, VotingControlsPanel
 src/config/                  # categories.js (6 primitives), constants.js (MIN_STARS=5, MAX_STARS=10)
 src/context/                 # ToastContext
-src/hooks/                   # useSession, useParticipant, useCanvasDispatch
+src/hooks/                   # useCanvasDispatch
 src/routes/                  # AdminCreate, AdminBoard, Join, Participant, OwnerDashboard, NotFound
-src/utils/                   # export.js, localParticipant.js, sessionCode.js
+src/utils/                   # export.js, localParticipant.js
 convex/                      # schema.ts, sessions.ts, participants.ts, intake.ts, canvas.ts, synthesis.ts, votes.ts, ownerQueries.ts
 convex/ai/                   # generateCanvas.ts, chatRefine.ts, synthesize.ts (LLM actions)
 convex/lib/                  # anthropic.ts (with retry-with-jitter), ids.ts
@@ -86,9 +86,11 @@ scripts/                     # simulate-workshop.mjs (Phase F harness)
 
 ## Identity model
 
-- **Admin** = possession of `adminKey` query param in URL (`/s/:code/admin?k=...`). Each session has its own. Admin has full session control: synthesize, open/close voting, re-synthesize.
+- **Admin** = possession of `adminKey` in the URL fragment (`/s/:code/admin#k=...`, also `/s/:code/present#k=...`). Same logic as owner: fragment isn't sent in Referer / server logs / browser history. Each session has its own. Admin has full session control: synthesize, open/close voting, re-synthesize. Parsed via `src/utils/adminKey.js` which strips the fragment from the address bar after read.
 - **Participant** = `participantId` stored in localStorage keyed by `teamprimitives:${sessionCode}:participantId`. localStorage is per-device; resumption only works on the same device.
 - **Owner** = possession of `OWNER_KEY` env-var-validated key. **Lives in URL fragment, not query string** (`/owner#k=...`). Fragment is never sent in HTTP requests / referer headers / server logs. Owner sees ALL sessions; can create/delete; deep-links into any session's admin URL.
+
+All bearer-key comparisons (adminKey + OWNER_KEY) go through `timingSafeEqual` in `convex/lib/auth.ts` rather than `===`.
 
 No accounts, no auth servers.
 
@@ -130,7 +132,9 @@ The owner dashboard at `/owner` is THE home page. AdminCreate at `/` is just a m
 - Don't add `transition: all` to animated containers.
 - localStorage is per-device — participants can't resume on a different device by design.
 - **Don't expose "cluster" in user-facing copy.** Internal data shape, not user concept. Use "Team's ideas — duplicates removed" or just "ideas".
-- **OWNER_KEY belongs in the URL fragment, not query string.** Never `?k=` — always `#k=`. Strip from address bar after parse so screenshots don't expose it.
+- **OWNER_KEY and adminKey both belong in the URL fragment, not query string.** Never `?k=` — always `#k=`. Strip from address bar after parse so screenshots don't expose it. The owner pattern is in `src/routes/OwnerDashboard.jsx`; the admin pattern is shared via `src/utils/adminKey.js`.
+- **Length caps on every user-string mutation.** See `convex/lib/limits.ts` (`LIMITS` + `enforceMaxLength`). Caps exist as a cost-amplifier defense — un-capped text gets concatenated into Anthropic prompts where token spend scales with input size.
+- **Rate limiting** lives in `convex/lib/rateLimit.ts` backed by the `rateLimits` table. Currently used to cap `joinSession` at 50/min/session. Add new keys as needed; format is `<purpose>:<scope>` (e.g. `joinSession:<sessionId>`).
 - **Don't put `internalMutation` in `"use node"` files.** They go in `convex/aiInternal.ts` (V8 runtime); only actions live in `convex/ai/*.ts` (Node runtime).
 - **`useEffect` runs twice in React 19 strict mode.** If the effect mutates URL state (like stripping a fragment), use a module-scoped cache or ref so the second invocation is idempotent.
 - **`mr-2` Tailwind class can render unreliably** in some compiled outputs — use inline `style={{ marginRight: "0.5rem" }}` when adjacent text appears stuck together.

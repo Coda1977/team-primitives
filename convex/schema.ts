@@ -116,4 +116,13 @@ export default defineSchema({
     .index("by_session", ["sessionId"])
     .index("by_participant", ["participantId"])
     .index("by_idea", ["ideaId"]),
+
+  // Sliding-window rate limit counters. `key` is namespaced by purpose +
+  // scope, e.g. "joinSession:<sessionId>". `windowStart` resets when the
+  // current window expires. See convex/lib/rateLimit.ts.
+  rateLimits: defineTable({
+    key: v.string(),
+    count: v.number(),
+    windowStart: v.number(),
+  }).index("by_key", ["key"]),
 });

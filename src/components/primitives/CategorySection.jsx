@@ -14,7 +14,7 @@ const CATEGORY_ICONS = {
   ideation: Lightbulb,
 };
 
-export default function CategorySection({ category, ideas, dispatch, isActive, onGoDeeper, delay, isLast }) {
+export default function CategorySection({ category, ideas, dispatch, onGoDeeper, delay }) {
   const { flash } = useFlash();
   const isFlashing = flash === category.id;
   const hasIdeas = ideas.length > 0;

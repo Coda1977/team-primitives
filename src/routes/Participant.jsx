@@ -6,7 +6,6 @@ import { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
 import { useQuery, useAction } from "convex/react";
 import { api } from "../../convex/_generated/api";
-import { getParticipantId } from "../utils/localParticipant";
 import IntakeView from "../components/views/IntakeView";
 import CanvasView from "../components/views/CanvasView";
 import MyBoardView from "../components/views/MyBoardView";
@@ -31,20 +30,15 @@ export default function Participant() {
     return <FullPageStatus>Participant not found in this workshop.</FullPageStatus>;
   }
 
-  // Verify localStorage links this participant to this device (for soft identity check)
-  const localId = getParticipantId(code);
-  const isOwner = localId === participantBySlug._id;
-
   return (
     <ParticipantInner
       session={session}
       participant={participantBySlug}
-      isOwner={isOwner}
     />
   );
 }
 
-function ParticipantInner({ session, participant, isOwner }) {
+function ParticipantInner({ session, participant }) {
   const generateCanvas = useAction(api.ai.generateCanvas.run);
   const [generating, setGenerating] = useState(false);
   const [genError, setGenError] = useState(null);
@@ -73,24 +67,17 @@ function ParticipantInner({ session, participant, isOwner }) {
     }
   }, [animationDone, participant.phase]);
 
-  // Show the animated indicator whenever:
-  //  - intake was just submitted (generating=true), OR
-  //  - phase has just advanced to "canvas" but the animation hasn't completed yet
-  //    (action returned faster than the 13-15s of stepping)
-  const showIndicator =
-    !genError &&
-    (generating ||
-      (participant.phase === "canvas" && generating === false && !animationDone && false));
-  // (the second branch is unused — `generating` is set true on submit and only
-  // cleared once both conditions are met. The simpler invariant is: while
-  // `generating` is true, render GeneratingIndicator.)
-
   if (genError) {
     return <CanvasGenErrorScreen error={genError} onRetry={onIntakeSubmitted} />;
   }
 
   if (generating) {
-    return <GeneratingIndicator onReady={() => setAnimationDone(true)} />;
+    return (
+      <GeneratingIndicator
+        onReady={() => setAnimationDone(true)}
+        apiReady={participant.phase === "canvas"}
+      />
+    );
   }
 
   // Phase dispatch
@@ -120,6 +107,7 @@ function CanvasGenErrorScreen({ error, onRetry }) {
     <main className="min-h-screen bg-white text-black px-6 py-12 flex items-center justify-center">
       <div className="max-w-md text-center">
         <div
+          role="alert"
           className="text-sm px-4 py-3 border-l-4 mb-6 text-left"
           style={{ borderColor: C.red, background: C.redLight, color: C.darkGray }}
         >

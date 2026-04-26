@@ -40,6 +40,7 @@ function parseArgs(argv) {
     else if (a === "--participants") out.participants = Number(argv[++i]);
     else if (a === "--concurrency") out.concurrency = Number(argv[++i]);
     else if (a === "--votes") out.votesPerParticipant = Number(argv[++i]);
+    else if (a === "--i-know-what-im-doing") out.iKnowWhatImDoing = true;
   }
   return out;
 }
@@ -197,7 +198,7 @@ async function runSession({ client, persona, ownerKey, participantCount, votesPe
             participantId: ps.participantId,
             ideaId: anchor,
           });
-        } catch (err) {
+        } catch {
           // Could be a re-vote attempt on same idea — fine, ignore
         }
       }
@@ -230,6 +231,23 @@ async function runSession({ client, persona, ownerKey, participantCount, votesPe
 async function main() {
   const args = parseArgs(process.argv.slice(2));
   const env = getEnv();
+
+  // Refuse to run against anything that doesn't look like a Convex dev
+  // deployment. The simulator burns Anthropic budget and writes ~30 sessions
+  // of fake data per --simulate:full run; pointing it at prod by accident is
+  // expensive and embarrassing. Override only with --i-know-what-im-doing.
+  const convexUrl = env.VITE_CONVEX_URL ?? "";
+  const looksLikeDev = /\bdev:/.test(convexUrl) || /-dev\.convex\.cloud/.test(convexUrl);
+  const override = args.iKnowWhatImDoing || process.env.SIMULATOR_ALLOW_PROD === "1";
+  if (!looksLikeDev && !override) {
+    console.error(
+      `Refusing to run simulator against a non-dev deployment.\n` +
+        `  VITE_CONVEX_URL = ${convexUrl || "(unset)"}\n` +
+        `Point .env.local at a Convex dev deployment, or set SIMULATOR_ALLOW_PROD=1 if you really mean it.`
+    );
+    process.exit(1);
+  }
+
   const ownerKey = env.OWNER_KEY ?? process.env.OWNER_KEY;
   if (!ownerKey) {
     console.error(

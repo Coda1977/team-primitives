@@ -4,9 +4,13 @@
 const BASE32 = "0123456789ABCDEFGHJKMNPQRSTVWXYZ"; // Crockford-style, no I/L/O/U
 
 function randomBase32(length: number): string {
+  // Reject-sampling on cryptographically random bytes — uniform across BASE32's 32 symbols.
+  // 256 / 32 = 8, so any byte maps cleanly via bit-mask without modulo bias.
+  const bytes = new Uint8Array(length);
+  crypto.getRandomValues(bytes);
   let out = "";
   for (let i = 0; i < length; i++) {
-    out += BASE32[Math.floor(Math.random() * BASE32.length)];
+    out += BASE32[bytes[i] & 0x1f];
   }
   return out;
 }
@@ -29,10 +33,12 @@ export function generateSessionCode(functionName: string): string {
 }
 
 export function generateAdminKey(): string {
-  // 32 hex chars from random
+  // 128-bit cryptographic key, hex-encoded. Acts as the bearer token for admin URLs.
+  const bytes = new Uint8Array(16);
+  crypto.getRandomValues(bytes);
   let out = "";
-  for (let i = 0; i < 32; i++) {
-    out += "0123456789abcdef"[Math.floor(Math.random() * 16)];
+  for (let i = 0; i < bytes.length; i++) {
+    out += bytes[i].toString(16).padStart(2, "0");
   }
   return out;
 }

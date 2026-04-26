@@ -4,6 +4,7 @@
 
 import { mutation, query } from "./_generated/server";
 import { v } from "convex/values";
+import { timingSafeEqual } from "./lib/auth";
 
 // Public query: returns session by code, NO adminKey exposed.
 export const getSession = query({
@@ -37,7 +38,7 @@ export const getSessionForAdmin = query({
       .withIndex("by_code", (q) => q.eq("code", args.code))
       .unique();
     if (!session) return null;
-    if (session.adminKey !== args.adminKey) return null;
+    if (!timingSafeEqual(session.adminKey, args.adminKey)) return null;
     return session;
   },
 });
@@ -47,7 +48,7 @@ export const closeSession = mutation({
   handler: async (ctx, args) => {
     const session = await ctx.db.get(args.sessionId);
     if (!session) throw new Error("Session not found");
-    if (session.adminKey !== args.adminKey) throw new Error("Invalid admin key");
+    if (!timingSafeEqual(session.adminKey, args.adminKey)) throw new Error("Invalid admin key");
     await ctx.db.patch(args.sessionId, { status: "closed" });
     return { ok: true };
   },

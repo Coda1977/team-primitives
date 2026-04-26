@@ -7,6 +7,7 @@ import { X, Send, Sparkles, Plus, Check, AlertTriangle } from "lucide-react";
 import { useQuery, useAction, useMutation } from "convex/react";
 import { api } from "../../../convex/_generated/api";
 import { C } from "../../config/constants";
+import { useToast } from "../../context/useToast";
 
 export default function ChatDrawer({ category, participantId, onClose, onIdeaAdded }) {
   const messages = useQuery(api.canvas.listChatMessages, {
@@ -17,6 +18,7 @@ export default function ChatDrawer({ category, participantId, onClose, onIdeaAdd
   const chatRefine = useAction(api.ai.chatRefine.run);
   const addIdea = useMutation(api.canvas.addIdea);
   const markChatIdeaAdded = useMutation(api.canvas.markChatIdeaAdded);
+  const { showToast } = useToast();
 
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
@@ -70,6 +72,7 @@ export default function ChatDrawer({ category, participantId, onClose, onIdeaAdd
       onIdeaAdded?.(suggestion.categoryId || category.id);
     } catch (err) {
       console.error("Failed to add suggestion", err);
+      showToast(err?.message ?? "Couldn't add that idea — try again.");
     }
   };
 

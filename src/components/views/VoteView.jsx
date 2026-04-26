@@ -8,6 +8,7 @@ import { useQuery, useMutation } from "convex/react";
 import { api } from "../../../convex/_generated/api";
 import { CATEGORIES } from "../../config/categories";
 import { C } from "../../config/constants";
+import { useToast } from "../../context/useToast";
 
 export default function VoteView({ session, participant }) {
   const synthesis = useQuery(api.synthesis.getLatestSynthesisForParticipant, {
@@ -19,6 +20,7 @@ export default function VoteView({ session, participant }) {
   });
   const castVote = useMutation(api.votes.castVote);
   const removeVote = useMutation(api.votes.removeVote);
+  const { showToast } = useToast();
 
   const budget = session.votesPerParticipant ?? 3;
 
@@ -64,6 +66,9 @@ export default function VoteView({ session, participant }) {
         await removeVote({ participantId: participant._id, ideaId: anchorIdeaId });
       } catch (err) {
         console.error("Remove vote failed", err);
+        showToast(
+          err?.message ?? "Couldn't remove that vote — try again."
+        );
       }
     } else {
       if (allUsed) return;
@@ -71,6 +76,9 @@ export default function VoteView({ session, participant }) {
         await castVote({ participantId: participant._id, ideaId: anchorIdeaId });
       } catch (err) {
         console.error("Cast vote failed", err);
+        showToast(
+          err?.message ?? "Vote didn't go through — try again."
+        );
       }
     }
   };
@@ -164,7 +172,6 @@ export default function VoteView({ session, participant }) {
                         title={idea.title}
                         summary={idea.summary}
                         contributorCount={idea.participantIds.length}
-                        accentColor={cat.color}
                         voted={voted}
                         disabled={disabled}
                         onToggle={() => onToggle(anchorId)}
@@ -188,7 +195,7 @@ export default function VoteView({ session, participant }) {
   );
 }
 
-function VoteableCard({ title, summary, contributorCount, accentColor, voted, disabled, onToggle }) {
+function VoteableCard({ title, summary, contributorCount, voted, disabled, onToggle }) {
   return (
     <div
       className="flex items-start gap-3 border p-4"

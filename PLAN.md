@@ -37,6 +37,41 @@ Target directory: `C:\Users\yonat\OneDrive\AI\Apps\Team Primitives`
 - 7 more persona JSON files (only HR, Product Marketing, Sales exist)
 - Optional: "Close session" admin toggle, separate staging Convex deployment
 
+### Hardening pass 2 (2026-04-25)
+
+Second-round security review. Applied items 2–8 from the prioritized list (skipped #1, the participant HMAC token — flagged as larger scope for a separate pass):
+
+- **adminKey moved from `?k=` to `#k=`.** Same fragment-not-query rule already used for OWNER_KEY. New helper `src/utils/adminKey.js` (mirrors the owner key's `KEY_CACHE`/strip pattern). All admin URL constructors updated (`AdminBoard`, `PresentView`, `ShareLinkPanel`, two sites in `OwnerDashboard`, the `adminUrl` field returned by `listAllSessions`). Eliminates Referer/log/history leakage.
+- **Deleted `appendChatMessage` mutation** (`convex/canvas.ts`). It was a Phase B holdover, now unreferenced — but until removed it let any caller fabricate `role: "assistant"` chat messages with arbitrary suggested ideas. All chat writes go through `chatRefine` → `appendChatInternal`.
+- **Length caps on every user-string mutation.** New `convex/lib/limits.ts` exports `LIMITS` + `enforceMaxLength`. Applied to `joinSession.name`, intake fields, `addIdea`/`updateIdea`, `createSessionAsOwner.{functionName,industry}`, plus the existing chat 2,000-char cap.
+- **Vercel security headers.** `vercel.json` now ships HSTS, X-Content-Type-Options, X-Frame-Options DENY, Referrer-Policy strict-origin-when-cross-origin, Permissions-Policy, and a CSP scoped for our actual sources (Convex WSS, Google Fonts; no inline scripts).
+- **Constant-time bearer-key compares.** New `convex/lib/auth.ts` exports `timingSafeEqual`. Replaces `===` for both adminKey checks (8 sites across `sessions.ts`, `synthesis.ts`, `participants.ts`, `votes.ts`, `aiInternal.ts`) and OWNER_KEY validation in `ownerQueries.ts`.
+- **`chatRefine` prompt-injection guards.** User input is wrapped in `<participant_message>...</participant_message>` with a system-side instruction to treat as data not commands. History sent to the LLM is sliced to the last 8 turns (the full transcript still persists for the UI).
+- **Rate-limited `joinSession`.** New `rateLimits` table + `convex/lib/rateLimit.ts` token-bucket helper. `joinSession` capped at 50/min/session.
+
+Skipped this pass:
+- **Participant HMAC token** (the reviewer's biggest finding — anyone with a `participantId` can vote/edit/delete on that participant's behalf). Real and worth doing, but invasive (every participant mutation gets a new arg + every client mutation gets the token threaded through). Tracked separately.
+- **Encrypted owner backup**, **`/privacy` route**, **per-participant deletion** — UX/policy work, not security per se.
+
+### Hardening pass (2026-04-22)
+
+Code review surfaced security, cost, and quality fixes. Applied:
+
+- **`Math.random` → `crypto.getRandomValues` / `crypto.randomUUID`** (`convex/lib/ids.ts`). `adminKey` is the de-facto bearer token for admin URLs; weak randomness made it guessable. Now 128-bit random hex. Session-code suffix uses reject-free 5-bit masks against random bytes (uniform across the 32-symbol alphabet).
+- **Rate limits on Anthropic-calling actions.** `chatRefine` rejects after `CHAT_TURN_LIMIT = 30` user turns per `(participant, category)` and rejects messages over 2,000 chars. `synthesize` rejects after `SYNTHESIS_RUN_LIMIT = 10` runs per session. `generateCanvas` was already idempotent (no-ops if ideas exist).
+- **Ranking helper extracted.** `convex/lib/ranking.ts` — pure `rankClusters({ clusters, ideas, votes, participants })` used by both `votes.ts` (live admin tallies + post-close ranked results) and `ownerQueries.ts` (export bundle). Removes ~50 lines of duplication; keeps tie-break rule (vote count desc, then `ideas.createdAt` asc) in one place.
+- **Dead code removed.** `src/components/views/PrimitivesView.jsx` (orphaned + imported names that don't exist), `uid` helper in `constants.js` (unreferenced).
+- **Doc drift fixed.** `CLAUDE.md` listed `useSession`, `useParticipant`, `sessionCode.js` — none exist. `eslint.config.js` linted `api/**/*.js` — directory was deleted with the Vercel-functions migration.
+- **Dependency hygiene.** `@anthropic-ai/sdk` and `p-limit` are dev-only (used by `scripts/simulate-workshop.mjs` + `scripts/lib/persona-llm.mjs`); the Convex backend uses direct `fetch`. Moved to `devDependencies`.
+- **Local typecheck script.** `npm run typecheck` runs `tsc -p convex/tsconfig.json --noEmit`. `typescript` added as devDep — run `npm install` to pull. Convex deploy still typechecks server-side, but local run catches errors before push.
+
+Deferred (low-priority perf / DX):
+
+- **Composite vote index** `(participantId, ideaId)` — current `.filter(...)` after `by_participant` index is fine at workshop scale (≤30 ideas/participant).
+- **`p-limit` in `exportAllSessionsZip`** — sequential awaits are fine ≤50 sessions.
+- **Dynamic imports for `docx` / `jszip`** — bundle is 867 KB / 256 KB gzip; acceptable for an internal tool.
+- **Unit tests for `rankClusters` / `findIdea`** — no test framework wired yet; add vitest if/when the codebase grows.
+
 ### Key divergences from the original plan
 
 These came up during build and the plan above doesn't fully reflect them — here's the canonical record:

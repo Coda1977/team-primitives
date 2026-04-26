@@ -3,6 +3,7 @@ import { createRoot } from "react-dom/client";
 import { BrowserRouter } from "react-router-dom";
 import { ConvexProvider, ConvexReactClient } from "convex/react";
 import { ToastProvider } from "./context/ToastContext";
+import ErrorBoundary from "./components/shared/ErrorBoundary";
 import App from "./App";
 import "./index.css";
 
@@ -17,12 +18,14 @@ const convex = new ConvexReactClient(convexUrl ?? "https://placeholder.convex.cl
 
 createRoot(document.getElementById("root")).render(
   <StrictMode>
-    <ConvexProvider client={convex}>
-      <BrowserRouter>
-        <ToastProvider>
-          <App />
-        </ToastProvider>
-      </BrowserRouter>
-    </ConvexProvider>
+    <ErrorBoundary>
+      <ConvexProvider client={convex}>
+        <BrowserRouter>
+          <ToastProvider>
+            <App />
+          </ToastProvider>
+        </BrowserRouter>
+      </ConvexProvider>
+    </ErrorBoundary>
   </StrictMode>
 );

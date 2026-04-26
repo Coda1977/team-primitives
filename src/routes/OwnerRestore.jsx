@@ -143,6 +143,7 @@ export default function OwnerRestore() {
 
             {error && (
               <div
+                role="alert"
                 className="mt-6 px-5 py-4 border-l-4 text-sm flex items-start gap-3"
                 style={{
                   borderColor: C.red,

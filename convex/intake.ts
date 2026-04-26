@@ -1,6 +1,7 @@
 import { mutation, query } from "./_generated/server";
 import { v } from "convex/values";
 import { bumpActivity } from "./participants";
+import { enforceMaxLength, LIMITS } from "./lib/limits";
 
 export const submitIntake = mutation({
   args: {
@@ -19,6 +20,9 @@ export const submitIntake = mutation({
     if (!strengths || !blockers || !oneWish) {
       throw new Error("All three intake answers are required");
     }
+    enforceMaxLength("Strengths", strengths, LIMITS.intakeField);
+    enforceMaxLength("Blockers", blockers, LIMITS.intakeField);
+    enforceMaxLength("One wish", oneWish, LIMITS.intakeField);
 
     // Upsert: if an intake already exists for this participant, update it
     const existing = await ctx.db

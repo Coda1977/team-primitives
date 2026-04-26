@@ -51,6 +51,7 @@ export default function SynthesizeButton({ sessionId, adminKey, lockedCount, has
       </button>
       {error && (
         <div
+          role="alert"
           className="text-sm px-4 py-3 border-l-4 flex items-start gap-2"
           style={{ borderColor: C.red, background: C.redLight, color: C.darkGray }}
         >

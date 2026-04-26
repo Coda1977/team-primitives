@@ -37,5 +37,3 @@ export const C = {
   surface: "#f5f5f5",
   offWhite: "#fafafa",
 };
-
-export const uid = () => Math.random().toString(36).slice(2, 10);

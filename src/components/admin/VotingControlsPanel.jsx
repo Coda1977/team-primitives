@@ -181,6 +181,7 @@ export default function VotingControlsPanel({ session, adminKey }) {
 
       {error && (
         <div
+          role="alert"
           className="text-xs px-3 py-2 mt-3 border-l-4"
           style={{ borderColor: C.red, background: C.redLight, color: C.darkGray }}
         >

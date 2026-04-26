@@ -1,15 +1,22 @@
-// Route: /s/:code/present?k=:adminKey
+// Route: /s/:code/present#k=:adminKey
 // Persona: facilitator projects this on a screen during the live workshop.
 // Designed for projection — editorial broadcast, light theme, generous
 // vertical rhythm, dramatic reveal on the post-vote winner.
+//
+// adminKey lives in the URL fragment (see src/utils/adminKey.js).
 
-import { useEffect } from "react";
-import { useParams, useSearchParams, Navigate } from "react-router-dom";
+import { useEffect, useRef, useState } from "react";
+import { useParams, useNavigate } from "react-router-dom";
 import { useQuery } from "convex/react";
 import { api } from "../../convex/_generated/api";
 import { CATEGORIES } from "../config/categories";
 import { C } from "../config/constants";
 import RankedIdeasView from "../components/views/RankedIdeasView";
+import {
+  consumeAdminKeyFromHash,
+  hasCachedAdminKey,
+  readCachedAdminKey,
+} from "../utils/adminKey";
 
 const FADE_KEYFRAMES = `
   @keyframes presentReveal {
@@ -20,8 +27,23 @@ const FADE_KEYFRAMES = `
 
 export default function PresentView() {
   const { code } = useParams();
-  const [searchParams] = useSearchParams();
-  const adminKey = searchParams.get("k");
+  const navigate = useNavigate();
+  const pathname = `/s/${code}/present`;
+  const [adminKey, setAdminKey] = useState(() => readCachedAdminKey(pathname));
+  const [keyChecked, setKeyChecked] = useState(() => hasCachedAdminKey(pathname));
+  const processed = useRef(false);
+
+  useEffect(() => {
+    if (processed.current) return;
+    processed.current = true;
+    const key = consumeAdminKeyFromHash(pathname);
+    if (!key) {
+      navigate("/", { replace: true });
+      return;
+    }
+    setAdminKey(key);
+    setKeyChecked(true);
+  }, [navigate, pathname]);
 
   const session = useQuery(
     api.sessions.getSessionForAdmin,
@@ -33,7 +55,7 @@ export default function PresentView() {
     return () => document.body.classList.remove("present-mode");
   }, []);
 
-  if (!adminKey) return <Navigate to="/" replace />;
+  if (!keyChecked) return null;
   if (session === undefined) return <FullScreenStatus>Loading…</FullScreenStatus>;
   if (session === null) {
     return (

@@ -12,6 +12,7 @@ import { internal } from "../_generated/api";
 import { v } from "convex/values";
 import { Id } from "../_generated/dataModel";
 import { callAnthropic } from "../lib/anthropic";
+import { findIdea, type StarredIdea } from "./findIdea";
 
 const CATEGORY_TITLES: Record<string, string> = {
   content: "Content Creation",
@@ -22,13 +23,10 @@ const CATEGORY_TITLES: Record<string, string> = {
   ideation: "Strategy & Ideation",
 };
 
-interface StarredIdea {
-  _id: Id<"ideas">;
-  text: string;
-  categoryId: string;
-  participantId: Id<"participants">;
-  participantName: string;
-}
+// Lifetime cap on synthesis runs per session. Re-synthesis after late joiners
+// is legitimate; double-digit re-runs are not — this caps Anthropic spend if
+// the admin URL ever leaks.
+const SYNTHESIS_RUN_LIMIT = 10;
 
 interface LlmCluster {
   title: string;
@@ -100,39 +98,6 @@ Respond in this exact JSON format (no markdown fences):
 Sort clusters by number of sources descending. Do not invent ideas. Every \`sources[i].text\` MUST appear verbatim from the raw list above so we can map it back to an ideaId.`;
 }
 
-function normalizeForMatch(text: string): string {
-  return text.trim().toLowerCase().replace(/\s+/g, " ");
-}
-
-// Best-effort source-text -> ideaId mapping. Tries exact match first,
-// then case+whitespace-normalized match. Returns null if unmatched
-// (caller surfaces as "orphan source" — does not silently drop the cluster).
-function findIdea(
-  source: { text: string; participantName: string },
-  starred: StarredIdea[]
-): StarredIdea | null {
-  // 1. Exact text + participant name (most specific)
-  let hit = starred.find(
-    (s) => s.text === source.text && s.participantName === source.participantName
-  );
-  if (hit) return hit;
-  // 2. Exact text only
-  hit = starred.find((s) => s.text === source.text);
-  if (hit) return hit;
-  // 3. Normalized text + participant name
-  const normSource = normalizeForMatch(source.text);
-  hit = starred.find(
-    (s) =>
-      normalizeForMatch(s.text) === normSource &&
-      s.participantName === source.participantName
-  );
-  if (hit) return hit;
-  // 4. Normalized text only
-  hit = starred.find((s) => normalizeForMatch(s.text) === normSource);
-  if (hit) return hit;
-  return null;
-}
-
 export const run = action({
   args: { sessionId: v.id("sessions"), adminKey: v.string() },
   handler: async (ctx, args): Promise<{ ok: true; clusterCount: number } | { ok: false; error: string }> => {
@@ -142,6 +107,16 @@ export const run = action({
       { sessionId: args.sessionId, adminKey: args.adminKey }
     );
     if (!session) throw new Error("Invalid admin key or session");
+
+    const priorRuns: number = await ctx.runQuery(
+      internal.aiInternal.countSynthesisRunsInternal,
+      { sessionId: args.sessionId }
+    );
+    if (priorRuns >= SYNTHESIS_RUN_LIMIT) {
+      throw new Error(
+        `Synthesis limit reached for this session (${SYNTHESIS_RUN_LIMIT} runs). Create a new workshop if you need to redo this.`
+      );
+    }
 
     // Require >= 2 locked participants per MVP defaults
     const lockedCount = await ctx.runQuery(

@@ -233,6 +233,7 @@ export default function IntakeView({ session, participant, onSubmitted }) {
 
           {error && (
             <div
+              role="alert"
               className="text-sm px-4 py-3 border-l-4 mt-8 ml-[3.75rem]"
               style={{
                 borderColor: C.red,

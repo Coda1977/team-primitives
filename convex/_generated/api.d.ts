@@ -10,12 +10,17 @@
 
 import type * as aiInternal from "../aiInternal.js";
 import type * as ai_chatRefine from "../ai/chatRefine.js";
+import type * as ai_findIdea from "../ai/findIdea.js";
 import type * as ai_generateCanvas from "../ai/generateCanvas.js";
 import type * as ai_synthesize from "../ai/synthesize.js";
 import type * as canvas from "../canvas.js";
 import type * as intake from "../intake.js";
 import type * as lib_anthropic from "../lib/anthropic.js";
+import type * as lib_auth from "../lib/auth.js";
 import type * as lib_ids from "../lib/ids.js";
+import type * as lib_limits from "../lib/limits.js";
+import type * as lib_ranking from "../lib/ranking.js";
+import type * as lib_rateLimit from "../lib/rateLimit.js";
 import type * as ownerQueries from "../ownerQueries.js";
 import type * as participants from "../participants.js";
 import type * as sessions from "../sessions.js";
@@ -31,12 +36,17 @@ import type {
 declare const fullApi: ApiFromModules<{
   aiInternal: typeof aiInternal;
   "ai/chatRefine": typeof ai_chatRefine;
+  "ai/findIdea": typeof ai_findIdea;
   "ai/generateCanvas": typeof ai_generateCanvas;
   "ai/synthesize": typeof ai_synthesize;
   canvas: typeof canvas;
   intake: typeof intake;
   "lib/anthropic": typeof lib_anthropic;
+  "lib/auth": typeof lib_auth;
   "lib/ids": typeof lib_ids;
+  "lib/limits": typeof lib_limits;
+  "lib/ranking": typeof lib_ranking;
+  "lib/rateLimit": typeof lib_rateLimit;
   ownerQueries: typeof ownerQueries;
   participants: typeof participants;
   sessions: typeof sessions;

@@ -6,11 +6,12 @@ import { useEffect, useState } from "react";
 import { C } from "../../config/constants";
 
 export default function RosterPanel({ participants }) {
-  // Re-render every 15s so "X min in Canvas" / "idle" indicators stay fresh
-  // even when nothing else in the dashboard changes.
-  const [, setTick] = useState(0);
+  // Re-clock every 15s so "X min in Canvas" / "idle" indicators stay fresh
+  // even when nothing else in the dashboard changes. `now` lives in state so
+  // the time read happens inside an effect (pure render).
+  const [now, setNow] = useState(() => Date.now());
   useEffect(() => {
-    const iv = setInterval(() => setTick((t) => t + 1), 15000);
+    const iv = setInterval(() => setNow(Date.now()), 15000);
     return () => clearInterval(iv);
   }, []);
 
@@ -31,14 +32,13 @@ export default function RosterPanel({ participants }) {
   return (
     <div className="space-y-2">
       {participants.map((p) => (
-        <RosterRow key={p._id} participant={p} />
+        <RosterRow key={p._id} participant={p} now={now} />
       ))}
     </div>
   );
 }
 
-function RosterRow({ participant }) {
-  const now = Date.now();
+function RosterRow({ participant, now }) {
   const inPhaseMs = now - (participant.phaseEnteredAt ?? participant.createdAt);
   const idleMs = now - (participant.lastActivityAt ?? participant.createdAt);
   const isIdle = idleMs > 90 * 1000 && participant.phase !== "locked";

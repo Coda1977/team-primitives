@@ -2,6 +2,15 @@ import { mutation, query, MutationCtx } from "./_generated/server";
 import { v } from "convex/values";
 import { Id } from "./_generated/dataModel";
 import { slugify } from "./lib/ids";
+import { enforceMaxLength, LIMITS } from "./lib/limits";
+import { timingSafeEqual } from "./lib/auth";
+import { checkRateLimit } from "./lib/rateLimit";
+
+// Per-session join cap: anyone with the public participant URL can call this,
+// so we cap the burst rate to thwart auto-fill abuse. Real workshops have at
+// most ~30 participants spread over a few minutes; 50 joins per minute is
+// well above that.
+const JOIN_LIMIT_PER_MINUTE = 50;
 
 // Helper called by every participant mutation to track activity for admin roster.
 export async function bumpActivity(
@@ -18,6 +27,14 @@ export const joinSession = mutation({
     if (!trimmedName) {
       throw new Error("Name is required");
     }
+    enforceMaxLength("Name", trimmedName, LIMITS.name);
+
+    await checkRateLimit(
+      ctx,
+      `joinSession:${args.sessionId}`,
+      JOIN_LIMIT_PER_MINUTE,
+      60_000
+    );
 
     const session = await ctx.db.get(args.sessionId);
     if (!session) throw new Error("Session not found");
@@ -79,7 +96,7 @@ export const listParticipants = query({
   handler: async (ctx, args) => {
     const session = await ctx.db.get(args.sessionId);
     if (!session) return [];
-    if (session.adminKey !== args.adminKey) return [];
+    if (!timingSafeEqual(session.adminKey, args.adminKey)) return [];
 
     const participants = await ctx.db
       .query("participants")

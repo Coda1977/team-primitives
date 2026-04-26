@@ -3,9 +3,10 @@
 
 import { useState } from "react";
 import { C } from "../../config/constants";
+import { buildAdminUrl } from "../../utils/adminKey";
 
 export default function ShareLinkPanel({ session, adminKey }) {
-  const adminUrl = `${window.location.origin}/s/${session.code}/admin?k=${adminKey}`;
+  const adminUrl = buildAdminUrl(window.location.origin, session.code, adminKey);
   const participantUrl = `${window.location.origin}/s/${session.code}/join`;
 
   return (

@@ -1,15 +1,26 @@
-// Route: /s/:code/admin?k=:adminKey
+// Route: /s/:code/admin#k=:adminKey
 // Persona: session admin (group lead running the workshop).
 // Editorial control room — strong typographic hierarchy, refined section
 // labels, no heavy chrome.
+//
+// adminKey lives in the URL fragment (not query string) so it doesn't leak via
+// Referer headers, server access logs, or browser history. Stripped from the
+// address bar after parse — see src/utils/adminKey.js.
 
-import { useMemo, useState } from "react";
-import { useParams, useSearchParams, Navigate } from "react-router-dom";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { useParams, useNavigate } from "react-router-dom";
 import { useQuery } from "convex/react";
 import { Tv, Download } from "lucide-react";
 import { api } from "../../convex/_generated/api";
 import { C } from "../config/constants";
 import { exportTopIdeasDocx, exportSynthesisDocx } from "../utils/export";
+import {
+  buildPresentUrl,
+  consumeAdminKeyFromHash,
+  hasCachedAdminKey,
+  readCachedAdminKey,
+} from "../utils/adminKey";
+import { useToast } from "../context/useToast";
 import ShareLinkPanel from "../components/admin/ShareLinkPanel";
 import RosterPanel from "../components/admin/RosterPanel";
 import RawStarredList from "../components/admin/RawStarredList";
@@ -26,15 +37,30 @@ const FADE_KEYFRAMES = `
 
 export default function AdminBoard() {
   const { code } = useParams();
-  const [searchParams] = useSearchParams();
-  const adminKey = searchParams.get("k");
+  const navigate = useNavigate();
+  const pathname = `/s/${code}/admin`;
+  const [adminKey, setAdminKey] = useState(() => readCachedAdminKey(pathname));
+  const [keyChecked, setKeyChecked] = useState(() => hasCachedAdminKey(pathname));
+  const processed = useRef(false);
+
+  useEffect(() => {
+    if (processed.current) return;
+    processed.current = true;
+    const key = consumeAdminKeyFromHash(pathname);
+    if (!key) {
+      navigate("/", { replace: true });
+      return;
+    }
+    setAdminKey(key);
+    setKeyChecked(true);
+  }, [navigate, pathname]);
 
   const session = useQuery(
     api.sessions.getSessionForAdmin,
     code && adminKey ? { code, adminKey } : "skip"
   );
 
-  if (!adminKey) return <Navigate to="/" replace />;
+  if (!keyChecked) return null;
 
   if (session === undefined) {
     return <FullPageStatus>Loading admin board…</FullPageStatus>;
@@ -71,6 +97,7 @@ function AdminInner({ session, adminKey }) {
     adminKey,
   });
   const [exporting, setExporting] = useState(false);
+  const { showToast } = useToast();
 
   const lockedCount = useMemo(
     () => (participants ?? []).filter((p) => p.phase === "locked").length,
@@ -118,7 +145,7 @@ function AdminInner({ session, adminKey }) {
               </h1>
             </div>
             <a
-              href={`/s/${session.code}/present?k=${adminKey}`}
+              href={buildPresentUrl(window.location.origin, session.code, adminKey)}
               target="_blank"
               rel="noreferrer"
               className="inline-flex items-center gap-2 px-4 py-2.5 text-[10px] font-semibold uppercase tracking-[0.22em] border hover:bg-black hover:text-white transition-colors"
@@ -218,6 +245,7 @@ function AdminInner({ session, adminKey }) {
             )}
             {synthesis?.status === "error" && (
               <div
+                role="alert"
                 className="border-l-4 px-5 py-4 text-sm mb-6"
                 style={{ borderColor: C.red, background: C.redLight, color: C.darkGray }}
               >
@@ -279,6 +307,9 @@ function AdminInner({ session, adminKey }) {
                             });
                           } catch (err) {
                             console.error("Top ideas export failed", err);
+                            showToast(
+                              err?.message ?? "Top ideas export failed."
+                            );
                           } finally {
                             setExporting(false);
                           }
@@ -305,6 +336,9 @@ function AdminInner({ session, adminKey }) {
                             });
                           } catch (err) {
                             console.error("Full board export failed", err);
+                            showToast(
+                              err?.message ?? "Full board export failed."
+                            );
                           } finally {
                             setExporting(false);
                           }

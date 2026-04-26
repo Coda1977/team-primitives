@@ -56,8 +56,6 @@ export default function RankedIdeasView({
         otherTop={otherTop}
         rest={rest}
         hasTies={hasTies}
-        participantCount={participantCount}
-        votesPerParticipant={votesPerParticipant}
       />
     );
   }
@@ -78,13 +76,14 @@ export default function RankedIdeasView({
 // STAGE VARIANT — projector-grade editorial layout
 // ===================================================================
 
-function StageVariant({ winners, otherTop, rest, hasTies, participantCount, votesPerParticipant }) {
-  let delayCounter = 0;
-  const nextDelay = () => {
-    const d = delayCounter;
-    delayCounter += 80;
-    return d;
-  };
+function StageVariant({ winners, otherTop, rest, hasTies }) {
+  // Pre-allocate stagger delays in render order so the JSX below can index
+  // into them without mutating a captured counter. Order matches the call
+  // sites: hero label, hero cards, runner-up label+cards, ranked label+rows,
+  // tie note. Plenty of headroom for the largest cluster set we'd ever show.
+  const delays = Array.from({ length: 200 }, (_, i) => i * 80);
+  let i = 0;
+  const nextDelay = () => delays[i++] ?? 0;
 
   return (
     <div>

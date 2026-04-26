@@ -14,6 +14,8 @@ import { clearParticipantId } from "../../utils/localParticipant";
 import { exportParticipantDocx } from "../../utils/export";
 import VoteView from "./VoteView";
 import RankedIdeasView from "./RankedIdeasView";
+import ConfirmModal from "../shared/ConfirmModal";
+import { useToast } from "../../context/useToast";
 
 export default function MyBoardView({ session, participant }) {
   const canvas = useQuery(api.canvas.getMyCanvas, {
@@ -43,6 +45,8 @@ export default function MyBoardView({ session, participant }) {
   }, [synthesis, session.votingStatus]);
 
   const [activeTab, setActiveTab] = useState("my");
+  const [resetConfirmOpen, setResetConfirmOpen] = useState(false);
+  const { showToast } = useToast();
 
   // Auto-jump to the latest "interesting" tab when phase advances. Doesn't
   // override an explicit click — just promotes when a new tab unlocks.
@@ -81,18 +85,26 @@ export default function MyBoardView({ session, participant }) {
     );
   }
 
-  const onReset = () => {
-    if (
-      window.confirm(
-        "Clear local session? You'll need to re-enter your name on this device."
-      )
-    ) {
-      clearParticipantId(session.code);
-      window.location.href = `/s/${session.code}/join`;
-    }
+  const onReset = () => setResetConfirmOpen(true);
+
+  const onResetConfirm = () => {
+    clearParticipantId(session.code);
+    window.location.href = `/s/${session.code}/join`;
   };
 
   // Vote tab is a full screen — render directly (it has its own sticky header)
+  const resetModal = (
+    <ConfirmModal
+      open={resetConfirmOpen}
+      title="Reset this device?"
+      message="You'll need to re-enter your name to rejoin from this browser. Your contributions stay in the workshop — only the local link to this device is cleared."
+      confirmLabel="Reset"
+      cancelLabel="Cancel"
+      onConfirm={onResetConfirm}
+      onCancel={() => setResetConfirmOpen(false)}
+    />
+  );
+
   if (activeTab === "vote") {
     return (
       <>
@@ -105,6 +117,7 @@ export default function MyBoardView({ session, participant }) {
           stats={stats}
         />
         <VoteView session={session} participant={participant} />
+        {resetModal}
       </>
     );
   }
@@ -123,14 +136,25 @@ export default function MyBoardView({ session, participant }) {
       <div className="max-w-3xl mx-auto pt-2">
         <SubheaderForState session={session} stats={stats} synthesis={synthesis} />
 
-        {activeTab === "my" && <MyBoardContent canvas={canvas} />}
+        {activeTab === "my" && (
+          <div role="tabpanel" id="panel-my" aria-labelledby="tab-my">
+            <MyBoardContent canvas={canvas} />
+          </div>
+        )}
 
         {activeTab === "team" && synthesis && (
-          <TeamBoardContent synthesis={synthesis} />
+          <div role="tabpanel" id="panel-team" aria-labelledby="tab-team">
+            <TeamBoardContent synthesis={synthesis} />
+          </div>
         )}
 
         {activeTab === "ranked" && rankedResults && (
-          <div className="mt-6">
+          <div
+            role="tabpanel"
+            id="panel-ranked"
+            aria-labelledby="tab-ranked"
+            className="mt-6"
+          >
             <RankedIdeasView
               ranked={rankedResults.ranked}
               participantCount={rankedResults.participantCount}
@@ -150,6 +174,7 @@ export default function MyBoardView({ session, participant }) {
                 await exportParticipantDocx({ session, participant, canvas });
               } catch (err) {
                 console.error("Export failed", err);
+                showToast(err?.message ?? "Couldn't generate the Word file.");
               }
             }}
             className="px-5 py-3 text-sm font-semibold uppercase tracking-[0.18em] border flex items-center gap-2 hover:bg-black hover:text-white transition-colors"
@@ -165,6 +190,7 @@ export default function MyBoardView({ session, participant }) {
           </button>
         </div>
       </div>
+      {resetModal}
     </main>
   );
 }
@@ -199,12 +225,20 @@ function TabBar({ tabs, activeTab, onChange, session, participant }) {
       </header>
       {tabs.length > 1 && (
         <nav
+          role="tablist"
+          aria-label="Workshop sections"
           className="flex gap-6 mb-8 border-b overflow-x-auto"
           style={{ borderColor: C.lightGray }}
         >
           {tabs.map((tab) => (
             <button
               key={tab.id}
+              id={`tab-${tab.id}`}
+              role="tab"
+              type="button"
+              aria-selected={activeTab === tab.id}
+              aria-controls={`panel-${tab.id}`}
+              tabIndex={activeTab === tab.id ? 0 : -1}
               onClick={() => onChange(tab.id)}
               className="py-3 text-[11px] font-bold uppercase tracking-[0.22em] whitespace-nowrap transition-colors"
               style={{

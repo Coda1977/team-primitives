@@ -151,16 +151,15 @@ function CanvasInner({ session, participant }) {
                 category={c}
                 ideas={ideasByCategory[c.id] || []}
                 dispatch={dispatch}
-                isActive={activeCategory?.id === c.id}
                 onGoDeeper={setActiveCategory}
                 delay={i * 0.05}
-                isLast={i === CATEGORIES.length - 1}
               />
             ))}
           </div>
 
           {error && (
             <div
+              role="alert"
               className="text-sm px-4 py-3 border-l-4 mt-6 max-w-3xl mx-auto"
               style={{ borderColor: C.red, background: C.redLight, color: C.darkGray }}
             >

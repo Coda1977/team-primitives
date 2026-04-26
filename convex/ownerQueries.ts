@@ -5,12 +5,15 @@
 import { mutation, query } from "./_generated/server";
 import { v } from "convex/values";
 import { generateAdminKey, generateSessionCode } from "./lib/ids";
+import { rankClusters } from "./lib/ranking";
+import { enforceMaxLength, LIMITS } from "./lib/limits";
+import { timingSafeEqual } from "./lib/auth";
 
 function validate(provided: string | undefined): boolean {
   const expected = process.env.OWNER_KEY;
   if (!expected) return false;
   if (!provided) return false;
-  return provided === expected;
+  return timingSafeEqual(provided, expected);
 }
 
 // Cross-session library for the owner.
@@ -70,7 +73,9 @@ export const listAllSessions = query({
           }
         }
 
-        const adminUrl = `/s/${s.code}/admin?k=${s.adminKey}`;
+        // Key in URL fragment (`#k=`) rather than query string so it doesn't
+        // appear in Referer headers or server access logs.
+        const adminUrl = `/s/${s.code}/admin#k=${s.adminKey}`;
 
         return {
           _id: s._id,
@@ -112,6 +117,11 @@ export const createSessionAsOwner = mutation({
     if (!trimmedFunctionName) {
       throw new Error("Function name is required");
     }
+    enforceMaxLength("Function name", trimmedFunctionName, LIMITS.functionName);
+    const trimmedIndustry = args.industry?.trim() || undefined;
+    if (trimmedIndustry) {
+      enforceMaxLength("Industry", trimmedIndustry, LIMITS.industry);
+    }
 
     let code = generateSessionCode(trimmedFunctionName);
     for (let attempt = 0; attempt < 5; attempt++) {
@@ -130,7 +140,7 @@ export const createSessionAsOwner = mutation({
       code,
       functionName: trimmedFunctionName,
       teamSize: args.teamSize,
-      industry: args.industry?.trim() || undefined,
+      industry: trimmedIndustry,
       adminKey,
       status: "open",
       votingStatus: "idle",
@@ -190,50 +200,14 @@ export const getSessionExportBundle = query({
       .withIndex("by_session", (q) => q.eq("sessionId", args.sessionId))
       .collect();
 
-    const voteCountByIdea = new Map<string, number>();
-    for (const vote of allVotes) {
-      const k = vote.ideaId as unknown as string;
-      voteCountByIdea.set(k, (voteCountByIdea.get(k) ?? 0) + 1);
-    }
-
-    const ideasById = new Map<string, any>();
-    for (const idea of starred) {
-      ideasById.set(idea._id as unknown as string, idea);
-    }
-
     let ranked: any[] = [];
     if (synthesis && synthesis.status === "ready") {
-      ranked = synthesis.clusters
-        .map((cluster: any) => {
-          let voteCount = 0;
-          let earliestCreatedAt = Number.MAX_SAFE_INTEGER;
-          for (const ideaId of cluster.memberIdeaIds as any[]) {
-            const k = ideaId as unknown as string;
-            voteCount += voteCountByIdea.get(k) ?? 0;
-            const idea = ideasById.get(k);
-            if (idea && idea.createdAt < earliestCreatedAt) {
-              earliestCreatedAt = idea.createdAt;
-            }
-          }
-          const contributorNames = cluster.participantIds
-            .map((pid: any) => participantById.get(pid as unknown as string)?.name)
-            .filter(Boolean);
-          return {
-            id: cluster.id,
-            title: cluster.title,
-            summary: cluster.summary,
-            categoryId: cluster.categoryId,
-            memberIdeaIds: cluster.memberIdeaIds,
-            participantIds: cluster.participantIds,
-            contributorNames,
-            voteCount,
-            earliestCreatedAt,
-          };
-        })
-        .sort((a: any, b: any) => {
-          if (b.voteCount !== a.voteCount) return b.voteCount - a.voteCount;
-          return a.earliestCreatedAt - b.earliestCreatedAt;
-        });
+      ranked = rankClusters({
+        clusters: synthesis.clusters,
+        ideas: starred,
+        votes: allVotes,
+        participants: participants.map((p) => ({ _id: p._id, name: p.name })),
+      });
     }
 
     return {

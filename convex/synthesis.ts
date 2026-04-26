@@ -1,5 +1,6 @@
 import { query } from "./_generated/server";
 import { v } from "convex/values";
+import { timingSafeEqual } from "./lib/auth";
 
 // Returns the most recent synthesis row for this session, or null.
 // Admin-gated.
@@ -8,7 +9,7 @@ export const getLatestSynthesis = query({
   handler: async (ctx, args) => {
     const session = await ctx.db.get(args.sessionId);
     if (!session) return null;
-    if (session.adminKey !== args.adminKey) return null;
+    if (!timingSafeEqual(session.adminKey, args.adminKey)) return null;
 
     const latest = await ctx.db
       .query("synthesis")
@@ -26,7 +27,7 @@ export const listRawStarred = query({
   handler: async (ctx, args) => {
     const session = await ctx.db.get(args.sessionId);
     if (!session) return [];
-    if (session.adminKey !== args.adminKey) return [];
+    if (!timingSafeEqual(session.adminKey, args.adminKey)) return [];
 
     const starred = await ctx.db
       .query("ideas")

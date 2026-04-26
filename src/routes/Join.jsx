@@ -6,7 +6,12 @@ import { useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { useMutation, useQuery } from "convex/react";
 import { api } from "../../convex/_generated/api";
-import { setParticipantId, getParticipantId } from "../utils/localParticipant";
+import {
+  setParticipantId,
+  setParticipantSlug,
+  getParticipantId,
+  getParticipantSlug,
+} from "../utils/localParticipant";
 import { C } from "../config/constants";
 
 const FADE_KEYFRAMES = `
@@ -50,6 +55,7 @@ export default function Join() {
         name: name.trim(),
       });
       setParticipantId(code, result.participantId);
+      setParticipantSlug(code, result.slug);
       navigate(`/s/${code}/p/${result.slug}`);
     } catch (err) {
       setError(err?.message ?? "Could not join. Try again?");
@@ -58,6 +64,7 @@ export default function Join() {
   };
 
   const existing = getParticipantId(code);
+  const existingSlug = getParticipantSlug(code);
 
   return (
     <main className="min-h-screen bg-white text-black flex flex-col">
@@ -129,6 +136,7 @@ export default function Join() {
 
             {error && (
               <div
+                role="alert"
                 className="text-sm px-4 py-3 border-l-4 mb-5"
                 style={{
                   borderColor: C.red,
@@ -145,7 +153,10 @@ export default function Join() {
               disabled={submitting || !name.trim()}
               className="w-full px-6 py-4 text-sm font-semibold uppercase tracking-[0.22em] disabled:opacity-50 disabled:cursor-not-allowed inline-flex items-center justify-center gap-3"
               style={{
-                background: name.trim() ? C.red : C.gray300,
+                // gray500 on white = 5.74:1, passes WCAG AA. gray300 (#999)
+                // was 2.85:1 — borderline-readable when the button is in its
+                // empty-name resting state.
+                background: name.trim() ? C.red : C.gray500,
                 color: C.white,
               }}
             >
@@ -158,7 +169,7 @@ export default function Join() {
             </button>
           </form>
 
-          {existing && (
+          {existing && existingSlug && (
             <p
               className="text-xs text-center mt-8"
               style={{
@@ -169,7 +180,7 @@ export default function Join() {
             >
               You've already joined this workshop on this device.{" "}
               <button
-                onClick={() => navigate(`/s/${code}/p/`)}
+                onClick={() => navigate(`/s/${code}/p/${existingSlug}`)}
                 className="underline hover:text-black"
               >
                 Resume

@@ -1,6 +1,7 @@
 import { mutation, query } from "./_generated/server";
 import { v } from "convex/values";
 import { bumpActivity } from "./participants";
+import { enforceMaxLength, LIMITS } from "./lib/limits";
 
 const MIN_STARS = 5;
 const MAX_STARS = 10;
@@ -48,6 +49,7 @@ export const addIdea = mutation({
 
     const text = args.text.trim();
     if (!text) throw new Error("Idea text is required");
+    enforceMaxLength("Idea", text, LIMITS.idea);
 
     // Determine the next `order` value within this category for stable display
     const existing = await ctx.db
@@ -95,6 +97,7 @@ export const updateIdea = mutation({
 
     const text = args.text.trim();
     if (!text) throw new Error("Idea text is required");
+    enforceMaxLength("Idea", text, LIMITS.idea);
 
     await ctx.db.patch(args.ideaId, { text });
     await bumpActivity(ctx, args.participantId);
@@ -217,42 +220,12 @@ export const listChatMessages = query({
   },
 });
 
-export const appendChatMessage = mutation({
-  args: {
-    participantId: v.id("participants"),
-    categoryId: v.string(),
-    role: v.union(v.literal("user"), v.literal("assistant")),
-    content: v.string(),
-    ideas: v.optional(
-      v.array(
-        v.object({
-          text: v.string(),
-          categoryId: v.string(),
-          added: v.boolean(),
-        })
-      )
-    ),
-  },
-  handler: async (ctx, args) => {
-    const participant = await ctx.db.get(args.participantId);
-    if (!participant) throw new Error("Participant not found");
-
-    const messageId = await ctx.db.insert("chatMessages", {
-      sessionId: participant.sessionId,
-      participantId: args.participantId,
-      categoryId: args.categoryId,
-      role: args.role,
-      content: args.content,
-      ideas: args.ideas,
-      createdAt: Date.now(),
-    });
-
-    if (args.role === "user") {
-      await bumpActivity(ctx, args.participantId);
-    }
-    return messageId;
-  },
-});
+// `appendChatMessage` was a holdover from Phase B before the chat action was
+// wired up. Deleted because it was publicly callable, accepted role: "assistant"
+// + arbitrary `ideas[]`, and let any caller fabricate AI suggestions in the
+// chat drawer. All chat writes now go through the `chatRefine` action which
+// uses `appendChatInternal` (`convex/aiInternal.ts`) for both user and
+// assistant turns.
 
 export const markChatIdeaAdded = mutation({
   args: {
