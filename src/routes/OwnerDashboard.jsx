@@ -7,6 +7,11 @@
 //
 // Key lives in URL fragment, NOT query string. Stripped from address bar after parse.
 //
+// Once the server validates the key (sessions !== null), it's cached in
+// localStorage so the next visit to `/` from this browser auto-redirects
+// here without the user retyping the bookmark. On rejection (sessions ===
+// null) the cached key is cleared so we don't loop.
+//
 // Visual scaffold + the four orchestration concerns (parse + cache the
 // owner key, render header / list / modals, kick off bulk export, kick off
 // per-row export) live here. Everything else is a leaf in `components/owner/`.
@@ -19,6 +24,10 @@ import { api } from "../../convex/_generated/api";
 import { C } from "../config/constants";
 import { exportTopIdeasDocx, exportAllSessionsZip } from "../utils/export";
 import { useToast } from "../context/useToast";
+import {
+  setOwnerKey as persistOwnerKey,
+  clearOwnerKey,
+} from "../utils/localOwner";
 import EmptyState from "../components/owner/EmptyState";
 import SessionsTable from "../components/owner/SessionsTable";
 import CreateModal from "../components/owner/CreateModal";
@@ -71,6 +80,16 @@ export default function OwnerDashboard() {
     api.ownerQueries.listAllSessions,
     ownerKey ? { ownerKey } : "skip"
   );
+
+  // Persist the key once the server has validated it. On rejection, clear
+  // any prior cache so visits to `/` don't loop on a stale key.
+  useEffect(() => {
+    if (sessions === null) {
+      clearOwnerKey();
+    } else if (sessions !== undefined && ownerKey) {
+      persistOwnerKey(ownerKey);
+    }
+  }, [sessions, ownerKey]);
 
   if (!keyChecked) return null;
 

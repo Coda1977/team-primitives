@@ -1,12 +1,33 @@
 // Route: /
-// Minimal landing. Sessions are created from the owner dashboard, not here.
+// Minimal landing for visitors with no credentials. If this browser has a
+// previously-validated owner key in localStorage, we auto-redirect to
+// `/owner` so the owner doesn't have to retype their bookmark every time.
+// Otherwise we show the front door.
+//
 // Participants don't visit `/` — they use a /s/:code/join link.
-// The owner uses their bookmarked /owner#k=... URL.
 
-import { Link } from "react-router-dom";
+import { useEffect, useState } from "react";
+import { Link, useNavigate } from "react-router-dom";
 import { C } from "../config/constants";
+import { getOwnerKey } from "../utils/localOwner";
 
 export default function AdminCreate() {
+  const navigate = useNavigate();
+  // Don't render anything until we've checked localStorage. Avoids a flash
+  // of the front door before redirect.
+  const [checked, setChecked] = useState(false);
+
+  useEffect(() => {
+    const stored = getOwnerKey();
+    if (stored) {
+      navigate(`/owner#k=${encodeURIComponent(stored)}`, { replace: true });
+      return;
+    }
+    setChecked(true);
+  }, [navigate]);
+
+  if (!checked) return null;
+
   return (
     <main className="min-h-screen bg-white text-black px-6 py-12 flex items-center justify-center">
       <div className="max-w-md text-center">
