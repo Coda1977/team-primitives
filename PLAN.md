@@ -37,6 +37,61 @@ Target directory: `C:\Users\yonat\OneDrive\AI\Apps\Team Primitives`
 - 7 more persona JSON files (only HR, Product Marketing, Sales exist)
 - Optional: "Close session" admin toggle, separate staging Convex deployment
 
+### Editorial overhaul + impeccable critique fixes (2026-05-09)
+
+Three rounds of `/impeccable` critique + audit, applied page-by-page. Commits in chronological order: `9681f8e`, `c571428`, `768f243`, `0a27dbc`, `b923370`.
+
+**Round 1 (`9681f8e`) — initial P1/P2 sweep, 26 files, +503/-321:**
+- New `<StatusBlock>` primitive (`src/components/shared/StatusBlock.jsx`) replaces 17 `border-l-4` side-stripe banners across views, routes, modals, and PresentView's voting-open block. Variants: alert/info/success/warning/accent. Banished the "system speaking" reflex from the codebase.
+- Global `:focus-visible` discipline added to `index.css` (3px electric-blue ring per spec). Fixed `focus:outline-none`-without-replacement on Join + Intake textareas (was a WCAG 2.4.7 violation).
+- New `useOnlineStatus` hook + wired connection dots in Intake, Canvas, MyBoard tab bar to real `navigator.onLine` state (was hard-coded green).
+- Embedded compact `RankedIdeasView` in AdminBoard once voting closes — admin no longer has to alt-tab to PresentView for the post-vote ceremony.
+- Synthesis error gets a real retry button (not just "Try again." text).
+- Em-dash sweep across user-visible copy (Join, Intake, MyBoard, AdminBoard, PresentView kicker, CanvasView confirm, OwnerDashboard, ShareLinkPanel, VoteView, ChatDrawer, OwnerRestore). Honors the project's writing-style rule.
+- Replaced 24 `transition: all` rules with explicit per-property lists. Switched `.gen-progress-fill` from `transition: width` to `transform: scaleX` (no more layout-property animation).
+- Re-skinned `use-card` chrome from black-hero to editorial light treatment so participant flow reads as one system from Intake → Canvas.
+- Bumped `.action-inline-btn` to 44x44 (touch target).
+- `aria-live="polite"` on VoteView budget chip + CanvasView star gate.
+- Promoted `--color-warning` + `warningDot` tokens; dropped raw `#b45309`/`#facc15` from RosterPanel.
+- `useMemo` on RankedIdeasView rank computation + RawStarredList byCat.
+- Deleted dead `Header.jsx` (referenced no-longer-existing `PhaseProgress`).
+- Marked legacy `C` constant aliases `@deprecated`.
+
+**Round 2 (`c571428`) — page-by-page editorial overhaul, 26 files, +1657/-713:**
+After a do-over critique that walked every page, applied:
+- **MyBoardView**: complete rewrite. Page-level editorial H1 hero per active tab (My board / Team board / Vote / Final results). Each phase has its own `SubheaderForState` architecture. Tabs at primary-nav scale (text-sm), single hairline rule.
+- **CanvasView**: H1 bumped from clamp(1.875–2.5rem) to display-md, kicker tracking unified at 0.32em, gate bar replaced with editorial sticky bar.
+- **CategorySection / IdeaCard / AddIdeaInput**: re-skinned off legacy `.use-card` / `.action-card` / `.add-action` rounded chrome onto flat editorial vocabulary.
+- **GeneratingIndicator**: rebuilt as editorial broadcast (kicker + display title + 6-step list) instead of rounded white card.
+- **VoteView**: kicker rebuilt to use the kicker-tick element (was bare `<p>`); `embedded` prop drops the hero when nested in MyBoardView's Vote tab; sticky chip height moved to a CSS custom property; empty state added; voted-card uses blue wash distinct from starred red wash.
+- **AdminBoard**: H1 swapped from generic "Admin board" to function name; mobile padding fixed.
+- **VotingControlsPanel**: each of 3 states (idle/open/closed) now has its own architecture rather than the same shell with copy swapped.
+- **ShareLinkPanel**: dropped duplicated function-name H2; Copy buttons bumped to 44x44.
+- **ClusterCard**: "voters" → "sources" (voting hasn't happened yet at synthesis stage).
+- **RosterPanel**: locked-phase chip color changed to green per DESIGN_BRIEF.
+- **OwnerDashboard / OwnerRestore / AdminCreate / NotFound**: editorial frame applied; AdminCreate and NotFound were starter-template stubs before.
+- **ConfirmModal + Toast**: rebuilt off legacy `.modal-content` / `.toast` rounded chrome onto flat editorial vocabulary. Toast added info/success/error variants.
+- **`StatusBlock` success variant**: changed from red to electric-blue (semantic conflict with CTAs/stars).
+- **`index.css` foundation**: added `.kicker-tick` (with `--sm`/`--lg` modifiers), `.kicker-label` (with `--sm`), `.section-anchor` + `.section-anchor__rule`, `.display-hero/xl/lg/md/sm`, `.touch-min`, `--color-success`, `--color-success-bg`, `--color-voted-bg`, `--touch-min`. Single source of truth replacing 8+ inline copies that drifted in height (h-4/h-5/h-6) and tracking (0.18em–0.32em).
+
+**Round 3 (`768f243`) — desktop layout: bump container widths + Canvas 2-col grid:**
+- Participant pages were stuck on mobile-first reading width (`max-w-3xl` = 768px). On a 1920px desktop they took only ~40% of the viewport. Bumped IntakeView/VoteView to max-w-5xl, MyBoardView to max-w-6xl, CanvasView to max-w-6xl (CSS .canvas-inner to 1280px). CanvasView categories now flow in a 2-column grid at lg+. MyBoardView gained a 12-col grid with sticky sidebar (state context aside) + main content.
+
+**Round 4 (`0a27dbc`) — root-cause centering bug + sidebar tightening:**
+- Found that `* { box-sizing: border-box; margin: 0; }` in `index.css` was silently breaking Tailwind's `mx-auto` everywhere. The unscoped universal selector beat Tailwind utilities in cascade order, so every container that used `mx-auto` to center on desktop was getting `margin: 0` instead of `margin: auto`. Pages left-aligned with empty whitespace on the right; bigger viewport = bigger gap. **Fix: move the universal reset into `@layer base`** so Tailwind's `@layer utilities` wins. One-line change with app-wide visual impact.
+- MyBoardView container bumped `max-w-6xl` → `max-w-7xl`; sidebar 4/12 → 3/12 (main 8/12 → 9/12); SubheaderForState voting-open restructured from horizontal to vertical stack for narrow-sidebar legibility.
+
+**Round 5 (`b923370`) — tab-aware download button on participant board:**
+- Footer download button now reflects the active tab. New `exportTeamBoardDocx` for the Team Board tab (slim version of synthesis export, no raw breakdown — admin-only data). `exportTopIdeasDocx` extended to accept `totalParticipants` (number) as alternative to `participants` (array) so the participant path can use `rankedResults.participantCount`. The button hides if the corresponding artifact doesn't exist.
+
+**Deferred from the critique** (still open as future polish):
+- Dead CSS deletion (~700 lines: `.commitment-*`, `.intake-*` legacy, `.phase-*`, `.header*`, `.rule-*` legacy, `.split-*`, `.pill`, `.fluency-*`). Held for safety since several class names are still referenced indirectly (e.g., `rule-flashing`).
+- ChatDrawer kicker integration + drawer-title hierarchy upgrade.
+- SynthesizeButton 5-step rotator loading state (per DESIGN_BRIEF spec).
+- IntakeView 2-col grid refactor for question alignment.
+- Bookmark banner on ShareLinkPanel.
+- AdminBoard `<details>` raw-starred → labeled section.
+
 ### Hardening pass 2 (2026-04-25)
 
 Second-round security review. Applied items 2–8 from the prioritized list (skipped #1, the participant HMAC token — flagged as larger scope for a separate pass):
