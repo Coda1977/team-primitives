@@ -15,7 +15,11 @@ import { api } from "../../../convex/_generated/api";
 import { CATEGORIES } from "../../config/categories";
 import { C } from "../../config/constants";
 import { clearParticipantId } from "../../utils/localParticipant";
-import { exportParticipantDocx } from "../../utils/export";
+import {
+  exportParticipantDocx,
+  exportTeamBoardDocx,
+  exportTopIdeasDocx,
+} from "../../utils/export";
 import VoteView from "./VoteView";
 import RankedIdeasView from "./RankedIdeasView";
 import ConfirmModal from "../shared/ConfirmModal";
@@ -187,9 +191,12 @@ export default function MyBoardView({ session, participant }) {
         </div>
 
         <Footer
+          activeTab={activeTab}
           session={session}
           participant={participant}
           canvas={canvas}
+          synthesis={synthesis}
+          rankedResults={rankedResults}
           onReset={onReset}
           showToast={showToast}
         />
@@ -580,46 +587,98 @@ function TeamBoardContent({ synthesis }) {
 }
 
 // ---------------------------------------------------------------
-// Footer — Word export (deliverable) + reset link
+// Footer — tab-aware Word export + reset link
+// The download button changes label and target per active tab so
+// "Download" always reflects what the user is currently looking at.
 // ---------------------------------------------------------------
-function Footer({ session, participant, canvas, onReset, showToast }) {
+function Footer({
+  activeTab,
+  session,
+  participant,
+  canvas,
+  synthesis,
+  rankedResults,
+  onReset,
+  showToast,
+}) {
+  // Resolve the right export action + label for the active tab.
+  // Returns null when the tab has no exportable artifact yet.
+  const exportConfig = (() => {
+    if (activeTab === "team") {
+      if (!synthesis || synthesis.status !== "ready") return null;
+      return {
+        label: "Download team board (Word)",
+        run: () => exportTeamBoardDocx({ session, synthesis }),
+        errorFallback: "Couldn't generate the team board.",
+      };
+    }
+    if (activeTab === "ranked") {
+      if (!rankedResults || !rankedResults.ranked?.length) return null;
+      const totalVotes = rankedResults.ranked.reduce(
+        (sum, r) => sum + (r.voteCount ?? 0),
+        0
+      );
+      return {
+        label: "Download final results (Word)",
+        run: () =>
+          exportTopIdeasDocx({
+            session,
+            ranked: rankedResults.ranked,
+            totalVotes,
+            totalParticipants: rankedResults.participantCount,
+          }),
+        errorFallback: "Couldn't generate the final results.",
+      };
+    }
+    // Default: my tab (also covers any unhandled state).
+    return {
+      label: "Download my ideas (Word)",
+      run: () => exportParticipantDocx({ session, participant, canvas }),
+      errorFallback: "Couldn't generate the Word file.",
+    };
+  })();
+
   return (
     <div
       className="mt-16 pt-8 border-t flex items-center justify-between flex-wrap gap-4"
       style={{ borderColor: C.lightGray }}
     >
-      <button
-        type="button"
-        onClick={async () => {
-          try {
-            await exportParticipantDocx({ session, participant, canvas });
-          } catch (err) {
-            console.error("Export failed", err);
-            showToast({
-              message: err?.message ?? "Couldn't generate the Word file.",
-              variant: "error",
-            });
-          }
-        }}
-        className="inline-flex items-center gap-2 px-5 py-3 text-xs font-semibold uppercase tracking-[0.22em] border touch-min"
-        style={{
-          borderColor: C.black,
-          color: C.black,
-          background: "transparent",
-          transition: "background 0.15s ease, color 0.15s ease",
-        }}
-        onMouseEnter={(e) => {
-          e.currentTarget.style.background = C.black;
-          e.currentTarget.style.color = C.white;
-        }}
-        onMouseLeave={(e) => {
-          e.currentTarget.style.background = "transparent";
-          e.currentTarget.style.color = C.black;
-        }}
-      >
-        <Download size={14} />
-        Download my ideas (Word)
-      </button>
+      {exportConfig ? (
+        <button
+          type="button"
+          onClick={async () => {
+            try {
+              await exportConfig.run();
+            } catch (err) {
+              console.error("Export failed", err);
+              showToast({
+                message: err?.message ?? exportConfig.errorFallback,
+                variant: "error",
+              });
+            }
+          }}
+          className="inline-flex items-center gap-2 px-5 py-3 text-xs font-semibold uppercase tracking-[0.22em] border touch-min"
+          style={{
+            borderColor: C.black,
+            color: C.black,
+            background: "transparent",
+            transition: "background 0.15s ease, color 0.15s ease",
+          }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.background = C.black;
+            e.currentTarget.style.color = C.white;
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.background = "transparent";
+            e.currentTarget.style.color = C.black;
+          }}
+        >
+          <Download size={14} />
+          {exportConfig.label}
+        </button>
+      ) : (
+        <span />
+      )}
       <button
         type="button"
         onClick={onReset}

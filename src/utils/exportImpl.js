@@ -95,10 +95,20 @@ function sectionHeader(text, opts = {}) {
 // Post-vote ranked list — the primary deliverable a facilitator hands back
 // to the group. Cover + Top 3 + Full ranked list + methodology footer.
 
-export async function exportTopIdeasDocx({ session, ranked, totalVotes, participants, save = true }) {
+export async function exportTopIdeasDocx({
+  session,
+  ranked,
+  totalVotes,
+  participants,
+  totalParticipants,
+  save = true,
+}) {
   if (!ranked || ranked.length === 0) {
     throw new Error("No ranked ideas to export");
   }
+  // Participants may be passed as a full array (admin path, has access) OR
+  // as a count (participant path, only sees rankedResults.participantCount).
+  const numParticipants = totalParticipants ?? participants?.length ?? 0;
 
   // Compute display ranks with tie handling
   const withRank = [];
@@ -116,7 +126,6 @@ export async function exportTopIdeasDocx({ session, ranked, totalVotes, particip
   const hasTies = withRank.some(
     (i, idx, arr) => idx > 0 && arr[idx - 1].voteCount === i.voteCount
   );
-  const totalParticipants = participants?.length ?? 0;
   const votesPerParticipant = session.votesPerParticipant ?? 3;
 
   const children = [];
@@ -169,11 +178,11 @@ export async function exportTopIdeasDocx({ session, ranked, totalVotes, particip
       spacing: { after: 320 },
       children: [
         new TextRun({
-          text: `${totalParticipants} ${
-            totalParticipants === 1 ? "person voted" : "people voted"
+          text: `${numParticipants} ${
+            numParticipants === 1 ? "person voted" : "people voted"
           } · ${votesPerParticipant} ${
             votesPerParticipant === 1 ? "vote" : "votes"
-          } each · ${totalVotes} ${totalVotes === 1 ? "vote" : "votes"} cast total`,
+          } each · ${totalVotes ?? 0} ${(totalVotes ?? 0) === 1 ? "vote" : "votes"} cast total`,
           size: 20,
           color: DARK_GRAY,
         }),
@@ -303,7 +312,7 @@ export async function exportTopIdeasDocx({ session, ranked, totalVotes, particip
       spacing: { after: 120 },
       children: [
         new TextRun({
-          text: `${totalParticipants} participants each starred 5–10 favorite ideas. AI clustered the starred ideas into ${ranked.length} themes (duplicates removed). Each participant then voted with ${votesPerParticipant} ${
+          text: `${numParticipants} participants each starred 5–10 favorite ideas. AI clustered the starred ideas into ${ranked.length} themes (duplicates removed). Each participant then voted with ${votesPerParticipant} ${
             votesPerParticipant === 1 ? "vote" : "votes"
           } (one per idea, one vote max per idea). This list is ranked by total votes${
             hasTies ? "; ties broken by which idea was contributed first" : ""
@@ -544,6 +553,167 @@ export async function exportSynthesisDocx({ session, ranked, synthesis, starred,
   const doc = new Document({ sections: [{ children }] });
   const blob = await Packer.toBlob(doc);
   const filename = `${safeFilename(session.functionName)}-${session.code}-full-board.docx`;
+  if (save !== false) saveAs(blob, filename);
+  return { blob, filename };
+}
+
+// ---------------- 2b. exportTeamBoardDocx ----------------
+// Participant-facing slim version of the synthesis export. Uses only
+// data the participant has access to (no raw starred breakdown — that's
+// admin-only). Renders the deduplicated themes grouped by category.
+
+export async function exportTeamBoardDocx({ session, synthesis, save = true }) {
+  if (!synthesis || synthesis.status !== "ready") {
+    throw new Error("No synthesis to export");
+  }
+  if (!synthesis.clusters || synthesis.clusters.length === 0) {
+    throw new Error("Synthesis has no clusters yet");
+  }
+
+  const children = [];
+
+  // Cover
+  children.push(kicker("Team Primitives · Team board"));
+  children.push(
+    new Paragraph({
+      spacing: { after: 120 },
+      children: [
+        new TextRun({
+          text: session.functionName,
+          bold: true,
+          size: 56,
+          color: BLACK,
+        }),
+      ],
+    })
+  );
+  children.push(
+    new Paragraph({
+      spacing: { after: 240 },
+      children: [
+        new TextRun({
+          text: "The team's ideas, duplicates removed",
+          size: 28,
+          color: DARK_GRAY,
+        }),
+      ],
+    })
+  );
+  const subtitleParts = [];
+  if (session.industry) subtitleParts.push(session.industry);
+  if (session.teamSize) subtitleParts.push(`team of ${session.teamSize}`);
+  subtitleParts.push(dateString(session.createdAt));
+  children.push(
+    new Paragraph({
+      spacing: { after: 320 },
+      children: [
+        new TextRun({
+          text: subtitleParts.join(" · "),
+          size: 20,
+          color: GRAY_500,
+        }),
+      ],
+    })
+  );
+  children.push(hairline());
+
+  // Themes grouped by category in the canonical 6-primitive order, sorted
+  // within each category by source count desc (most-shared themes first).
+  const byCategory = new Map();
+  for (const c of synthesis.clusters) {
+    if (!byCategory.has(c.categoryId)) byCategory.set(c.categoryId, []);
+    byCategory.get(c.categoryId).push(c);
+  }
+  for (const arr of byCategory.values()) {
+    arr.sort((a, b) => b.participantIds.length - a.participantIds.length);
+  }
+
+  const filledCategories = CATEGORIES.filter(
+    (cat) => (byCategory.get(cat.id) ?? []).length > 0
+  );
+
+  filledCategories.forEach((cat, idx) => {
+    children.push(
+      sectionHeader(cat.title, { before: idx === 0 ? 0 : 320 })
+    );
+    const themes = byCategory.get(cat.id) ?? [];
+    themes.forEach((theme) => {
+      children.push(
+        new Paragraph({
+          spacing: { before: 200, after: 60 },
+          children: [
+            new TextRun({
+              text: theme.title,
+              bold: true,
+              size: 24,
+              color: BLACK,
+            }),
+          ],
+        })
+      );
+      if (theme.summary) {
+        children.push(
+          new Paragraph({
+            spacing: { after: 80 },
+            children: [
+              new TextRun({
+                text: theme.summary,
+                size: 20,
+                color: DARK_GRAY,
+              }),
+            ],
+          })
+        );
+      }
+      const sourceCount = theme.participantIds?.length ?? 0;
+      children.push(
+        new Paragraph({
+          spacing: { after: 60 },
+          children: [
+            new TextRun({
+              text: `${sourceCount} ${sourceCount === 1 ? "source" : "sources"}`,
+              size: 18,
+              color: GRAY_500,
+              italics: true,
+            }),
+          ],
+        })
+      );
+    });
+  });
+
+  // Methodology footer
+  children.push(hairline());
+  children.push(kicker("Methodology"));
+  children.push(
+    new Paragraph({
+      spacing: { after: 120 },
+      children: [
+        new TextRun({
+          text: `Each teammate independently brainstormed ideas across six AI primitive categories, then starred their favorites. AI then clustered the starred ideas across the team to remove duplicates and surface ${synthesis.clusters.length} distinct themes.`,
+          size: 18,
+          color: DARK_GRAY,
+        }),
+      ],
+    })
+  );
+  children.push(
+    new Paragraph({
+      spacing: { before: 240 },
+      children: [
+        new TextRun({
+          text: `Generated by Team Primitives · ${dateString(Date.now())} · Session ${session.code}`,
+          size: 16,
+          color: GRAY_500,
+          italics: true,
+        }),
+      ],
+    })
+  );
+
+  const doc = new Document({ sections: [{ children }] });
+  const blob = await Packer.toBlob(doc);
+  const filename = `${safeFilename(session.functionName)}-${session.code}-team-board.docx`;
   if (save !== false) saveAs(blob, filename);
   return { blob, filename };
 }

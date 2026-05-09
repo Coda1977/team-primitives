@@ -20,6 +20,11 @@ export async function exportSynthesisDocx(args) {
   return m.exportSynthesisDocx(args);
 }
 
+export async function exportTeamBoardDocx(args) {
+  const m = await getImpl();
+  return m.exportTeamBoardDocx(args);
+}
+
 export async function exportParticipantDocx(args) {
   const m = await getImpl();
   return m.exportParticipantDocx(args);
