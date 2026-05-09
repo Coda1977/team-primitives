@@ -11,6 +11,7 @@ import CanvasView from "../components/views/CanvasView";
 import MyBoardView from "../components/views/MyBoardView";
 import GeneratingIndicator from "../components/shared/GeneratingIndicator";
 import { C } from "../config/constants";
+import StatusBlock from "../components/shared/StatusBlock";
 
 export default function Participant() {
   const { code, slug } = useParams();
@@ -105,21 +106,23 @@ function ParticipantInner({ session, participant }) {
 function CanvasGenErrorScreen({ error, onRetry }) {
   return (
     <main className="min-h-screen bg-white text-black px-6 py-12 flex items-center justify-center">
-      <div className="max-w-md text-center">
-        <div
-          role="alert"
-          className="text-sm px-4 py-3 border-l-4 mb-6 text-left"
-          style={{ borderColor: C.red, background: C.redLight, color: C.darkGray }}
+      <div className="max-w-md w-full">
+        <StatusBlock
+          variant="alert"
+          kicker="Couldn't generate"
+          className="mb-6"
+          action={
+            <button
+              onClick={onRetry}
+              className="px-5 py-2.5 text-xs font-semibold uppercase tracking-[0.18em]"
+              style={{ background: C.red, color: C.white }}
+            >
+              Try again
+            </button>
+          }
         >
           {error}
-        </div>
-        <button
-          onClick={onRetry}
-          className="px-6 py-3 text-sm font-semibold uppercase tracking-wider"
-          style={{ background: C.red, color: C.white }}
-        >
-          Try again
-        </button>
+        </StatusBlock>
       </div>
     </main>
   );

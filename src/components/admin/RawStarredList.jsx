@@ -2,23 +2,28 @@
 // with participant attribution. Always visible to admin as a safety net
 // when synthesis quality is in doubt.
 
+import { useMemo } from "react";
 import { CATEGORIES } from "../../config/categories";
 import { C } from "../../config/constants";
 
 export default function RawStarredList({ starred }) {
+  // Group by category. Memoized: AdminBoard re-renders on every Convex tick,
+  // but `starred` is referentially stable across most ticks.
+  const byCat = useMemo(() => {
+    const grouped = {};
+    for (const idea of starred ?? []) {
+      if (!grouped[idea.categoryId]) grouped[idea.categoryId] = [];
+      grouped[idea.categoryId].push(idea);
+    }
+    return grouped;
+  }, [starred]);
+
   if (!starred || starred.length === 0) {
     return (
       <p className="text-sm text-neutral-500 italic">
         No starred ideas yet. Once participants lock their stars, they'll appear here grouped by category.
       </p>
     );
-  }
-
-  // Group by category
-  const byCat = {};
-  for (const idea of starred) {
-    if (!byCat[idea.categoryId]) byCat[idea.categoryId] = [];
-    byCat[idea.categoryId].push(idea);
   }
 
   return (

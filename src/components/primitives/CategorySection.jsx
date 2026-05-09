@@ -39,18 +39,22 @@ export default function CategorySection({ category, ideas, dispatch, onGoDeeper,
       id={`category-${category.id}`}
       data-category-id={category.id}
     >
-      {/* Black card header */}
+      {/* Editorial light header — kicker tick + tracked label + title + description */}
       <div className="use-card-header">
         <div className="use-card-number">
           Category {category.number}
           {hasIdeas && (
-            <span className="rule-check" style={{ background: "rgba(0,163,224,0.15)", color: C.electricBlue }}>
+            <span
+              className="rule-check"
+              style={{ background: "rgba(0,163,224,0.15)", color: C.electricBlue }}
+              aria-label="Has ideas"
+            >
               <Check size={12} />
             </span>
           )}
         </div>
         <div className="icon-badge">
-          <Icon size={20} />
+          <Icon size={18} />
         </div>
         <h2>{category.title}</h2>
         <p className="use-card-desc">{category.description}</p>

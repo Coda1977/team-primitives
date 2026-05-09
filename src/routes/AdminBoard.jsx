@@ -27,6 +27,8 @@ import RawStarredList from "../components/admin/RawStarredList";
 import SynthesizeButton from "../components/admin/SynthesizeButton";
 import ClusterCard from "../components/admin/ClusterCard";
 import VotingControlsPanel from "../components/admin/VotingControlsPanel";
+import StatusBlock from "../components/shared/StatusBlock";
+import RankedIdeasView from "../components/views/RankedIdeasView";
 
 const FADE_KEYFRAMES = `
   @keyframes adminReveal {
@@ -213,7 +215,7 @@ function AdminInner({ session, adminKey }) {
                   className="px-4 py-3 text-[10px] uppercase tracking-[0.22em] font-semibold cursor-pointer hover:bg-neutral-50 select-none"
                   style={{ color: C.darkGray }}
                 >
-                  Raw starred list — show all
+                  Raw starred list (show all)
                 </summary>
                 <div className="px-5 pb-5 pt-2">
                   <RawStarredList starred={starred ?? []} />
@@ -232,26 +234,27 @@ function AdminInner({ session, adminKey }) {
             </div>
 
             {synthesis?.status === "running" && (
-              <div
-                className="border-l-4 px-5 py-4 text-sm mb-6"
-                style={{
-                  borderColor: C.electricBlue,
-                  background: "rgba(0,163,224,0.06)",
-                  color: C.darkGray,
-                }}
-              >
-                Synthesizing… this takes 10–20 seconds. Refresh-safe.
-              </div>
+              <StatusBlock variant="info" kicker="Synthesizing" className="mb-6">
+                This takes 10–20 seconds. Refresh-safe.
+              </StatusBlock>
             )}
             {synthesis?.status === "error" && (
-              <div
-                role="alert"
-                className="border-l-4 px-5 py-4 text-sm mb-6"
-                style={{ borderColor: C.red, background: C.redLight, color: C.darkGray }}
+              <StatusBlock
+                variant="alert"
+                kicker="Synthesis failed"
+                className="mb-6"
+                action={
+                  <SynthesizeButton
+                    sessionId={session._id}
+                    adminKey={adminKey}
+                    lockedCount={lockedCount}
+                    hasExisting={hasReady}
+                    isRunning={isRunning}
+                  />
+                }
               >
-                <strong>Synthesis failed:</strong>{" "}
                 {synthesis.error || "Unknown error"}. Try again.
-              </div>
+              </StatusBlock>
             )}
 
             {hasReady && synthesis.clusters.length > 0 && (
@@ -275,6 +278,30 @@ function AdminInner({ session, adminKey }) {
                 <div className="pt-6 mt-6 border-t" style={{ borderColor: C.lightGray }}>
                   <VotingControlsPanel session={session} adminKey={adminKey} />
                 </div>
+                {session.votingStatus === "closed_with_results" &&
+                  rankedResults?.ranked?.length > 0 && (
+                    <div
+                      className="pt-6 mt-6 border-t"
+                      style={{ borderColor: C.lightGray }}
+                    >
+                      <SectionHeader
+                        kicker="Final results"
+                        title="Team's ranked priorities"
+                        subtitle={`${rankedResults.participantCount} ${
+                          rankedResults.participantCount === 1
+                            ? "person voted"
+                            : "people voted"
+                        }`}
+                        small
+                      />
+                      <RankedIdeasView
+                        ranked={rankedResults.ranked}
+                        participantCount={rankedResults.participantCount}
+                        votesPerParticipant={rankedResults.votesPerParticipant}
+                        variant="compact"
+                      />
+                    </div>
+                  )}
                 {(rankedResults?.ranked?.length > 0 ||
                   adminTallies?.ranked?.length > 0) && (
                   <div

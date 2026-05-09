@@ -13,6 +13,7 @@ import {
   getParticipantSlug,
 } from "../utils/localParticipant";
 import { C } from "../config/constants";
+import StatusBlock from "../components/shared/StatusBlock";
 
 const FADE_KEYFRAMES = `
   @keyframes joinReveal {
@@ -104,7 +105,7 @@ export default function Join() {
               }}
             >
               You're about to brainstorm where AI fits in your function.
-              {" "}<span style={{ color: C.gray500 }}>About 20 minutes — make sure you have time to focus.</span>
+              {" "}<span style={{ color: C.gray500 }}>About 20 minutes. Make sure you have time to focus.</span>
             </p>
           </div>
 
@@ -135,17 +136,9 @@ export default function Join() {
             </label>
 
             {error && (
-              <div
-                role="alert"
-                className="text-sm px-4 py-3 border-l-4 mb-5"
-                style={{
-                  borderColor: C.red,
-                  background: C.redLight,
-                  color: C.darkGray,
-                }}
-              >
+              <StatusBlock variant="alert" kicker="Couldn't join" className="mb-5">
                 {error}
-              </div>
+              </StatusBlock>
             )}
 
             <button

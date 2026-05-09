@@ -72,7 +72,7 @@ export default function ChatDrawer({ category, participantId, onClose, onIdeaAdd
       onIdeaAdded?.(suggestion.categoryId || category.id);
     } catch (err) {
       console.error("Failed to add suggestion", err);
-      showToast(err?.message ?? "Couldn't add that idea — try again.");
+      showToast(err?.message ?? "Couldn't add that idea, try again.");
     }
   };
 

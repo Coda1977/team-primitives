@@ -1,5 +1,6 @@
 import { Component } from "react";
 import { C } from "../../config/constants";
+import StatusBlock from "./StatusBlock";
 
 // Top-level guard against React render-time crashes. Without this, a thrown
 // error inside any descendant (a malformed Convex payload, a broken third-party
@@ -55,17 +56,11 @@ export default class ErrorBoundary extends Component {
             >
               The page hit an error
             </h1>
-            <p
-              role="alert"
-              className="text-sm leading-relaxed mb-8 px-4 py-3 border-l-4 text-left"
-              style={{
-                color: C.darkGray,
-                borderColor: C.red,
-                background: C.redLight,
-              }}
-            >
-              {message}
-            </p>
+            <div className="mb-8 text-left">
+              <StatusBlock variant="alert" kicker="Error details">
+                {message}
+              </StatusBlock>
+            </div>
             <button
               type="button"
               onClick={this.handleReload}

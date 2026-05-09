@@ -3,6 +3,7 @@ import { useMutation } from "convex/react";
 import { api } from "../../../convex/_generated/api";
 import { C } from "../../config/constants";
 import ModalShell from "./ModalShell";
+import StatusBlock from "../shared/StatusBlock";
 
 export default function DeleteModal({ session, ownerKey, onClose }) {
   const deleteSession = useMutation(api.ownerQueries.deleteSessionAsOwner);
@@ -29,13 +30,9 @@ export default function DeleteModal({ session, ownerKey, onClose }) {
       </p>
 
       {error && (
-        <div
-          role="alert"
-          className="text-sm px-4 py-3 border-l-4 mb-4"
-          style={{ borderColor: C.red, background: C.redLight, color: C.darkGray }}
-        >
+        <StatusBlock variant="alert" kicker="Couldn't delete" className="mb-4">
           {error}
-        </div>
+        </StatusBlock>
       )}
 
       <div className="flex items-center justify-end gap-3">

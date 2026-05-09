@@ -9,6 +9,7 @@ import { useConvex } from "convex/react";
 import { Upload, AlertTriangle } from "lucide-react";
 import { api } from "../../convex/_generated/api";
 import { C } from "../config/constants";
+import StatusBlock from "../components/shared/StatusBlock";
 
 const FADE_KEYFRAMES = `
   @keyframes restoreReveal {
@@ -112,8 +113,13 @@ export default function OwnerRestore() {
             }}
           >
             <label
-              className="block border-2 border-dashed cursor-pointer hover:bg-neutral-50 transition-colors p-12 text-center"
-              style={{ borderColor: C.lightGray }}
+              className="block border-2 border-dashed cursor-pointer hover:bg-neutral-50 focus-within:bg-neutral-50 p-12 text-center"
+              style={{
+                borderColor: C.lightGray,
+                transition: "background-color 0.2s ease, border-color 0.2s ease",
+              }}
+              onFocus={(e) => (e.currentTarget.style.borderColor = C.electricBlue)}
+              onBlur={(e) => (e.currentTarget.style.borderColor = C.lightGray)}
             >
               <input
                 type="file"
@@ -136,23 +142,20 @@ export default function OwnerRestore() {
               </p>
               <p className="text-xs" style={{ color: C.gray500 }}>
                 {filename && !busy && !error
-                  ? "Restored — redirecting…"
+                  ? "Restored. Redirecting…"
                   : "team-primitives-owner-*.json"}
               </p>
             </label>
 
             {error && (
-              <div
-                role="alert"
-                className="mt-6 px-5 py-4 border-l-4 text-sm flex items-start gap-3"
-                style={{
-                  borderColor: C.red,
-                  background: C.redLight,
-                  color: C.darkGray,
-                }}
-              >
-                <AlertTriangle size={16} className="flex-shrink-0 mt-0.5" />
-                <span>{error}</span>
+              <div className="mt-6">
+                <StatusBlock
+                  variant="alert"
+                  kicker="Restore failed"
+                  icon={<AlertTriangle size={16} />}
+                >
+                  {error}
+                </StatusBlock>
               </div>
             )}
 

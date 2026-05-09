@@ -16,7 +16,15 @@ export const C = {
   redHover: "#c00510",
   redLight: "#fff2f3",
   electricBlue: "#00a3e0",
-  // Legacy aliases (used by inherited components)
+  warning: "#b45309",
+  warningBg: "rgba(180,83,9,0.08)",
+  warningDot: "#facc15",
+  // @deprecated Legacy aliases retained for inherited components.
+  // Prefer canonical keys above for new code:
+  //   ink/gray900 -> black, accent/accentGlow -> red, accentHover -> redHover,
+  //   accentFaint -> use rgba inline, muted/gray700 -> darkGray, card -> white,
+  //   border/gray200 -> lightGray, borderStrong/gray300 -> "#999",
+  //   gray500 -> "#666", success -> electricBlue, surface unchanged.
   ink: "#000000",
   accent: "#e30613",
   accentHover: "#c00510",

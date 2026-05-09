@@ -97,8 +97,8 @@ export default function OwnerDashboard() {
     return (
       <FullPageStatus title="Invalid owner key">
         <span>
-          The key in your URL doesn't match this deployment. Check your bookmark —
-          keys are environment-specific.
+          The key in your URL doesn't match this deployment. Check your bookmark.
+          Keys are environment-specific.
         </span>
         <span className="block mt-6">
           <Link
@@ -137,7 +137,7 @@ function DashboardInner({ ownerKey, sessions }) {
       savedAt: new Date().toISOString(),
       origin: window.location.origin,
       note:
-        "Restore at /owner/restore. This file contains your owner key — store it like any other secret (1Password, encrypted note app, etc.). Anyone with this file can access every workshop in this deployment.",
+        "Restore at /owner/restore. This file contains your owner key. Store it like any other secret (1Password, encrypted note app, etc.). Anyone with this file can access every workshop in this deployment.",
     };
     const blob = new Blob([JSON.stringify(backup, null, 2)], {
       type: "application/json",

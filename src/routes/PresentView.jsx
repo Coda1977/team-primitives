@@ -140,7 +140,7 @@ function PresentInner({ session, adminKey }) {
             votingOpen
               ? "Voting in progress"
               : hasSynthesis
-              ? "Team's ideas — duplicates removed"
+              ? "Team's ideas, duplicates removed"
               : starred && starred.length > 0
               ? "Live: ideas as the team locks them in"
               : "Workshop"
@@ -163,25 +163,34 @@ function PresentInner({ session, adminKey }) {
 
         {votingOpen && (
           <div
-            className="mb-16 p-6 lg:p-8 flex items-center gap-5"
+            className="mb-16 p-8 lg:p-10 flex items-center gap-8"
             style={{
               background: C.starredBg,
-              borderLeft: `4px solid ${C.red}`,
               opacity: 0,
               animation: `presentReveal 600ms ease-out 100ms forwards`,
             }}
           >
             <div
-              className="text-4xl font-bold leading-none tabular-nums"
-              style={{ color: C.red }}
+              className="text-5xl lg:text-6xl font-bold leading-none tabular-nums"
+              style={{ color: C.red, letterSpacing: "-0.04em" }}
             >
               {session.votesPerParticipant ?? 3}
             </div>
-            <div>
-              <div className="text-xs font-bold uppercase tracking-[0.28em] mb-1">
-                Voting is open
+            <div className="flex-1">
+              <div className="flex items-center gap-3 mb-2">
+                <span
+                  aria-hidden="true"
+                  className="inline-block w-1 h-4"
+                  style={{ background: C.red }}
+                />
+                <span
+                  className="text-[11px] font-bold uppercase tracking-[0.32em]"
+                  style={{ color: C.red }}
+                >
+                  Voting is open
+                </span>
               </div>
-              <div className="text-sm" style={{ color: C.darkGray }}>
+              <div className="text-sm lg:text-base" style={{ color: C.darkGray, lineHeight: 1.55 }}>
                 Each teammate has{" "}
                 {session.votesPerParticipant ?? 3}{" "}
                 {(session.votesPerParticipant ?? 3) === 1 ? "vote" : "votes"}.
@@ -395,10 +404,12 @@ function CategoryZone({ category, ideas, children }) {
 function StickyNote({ text, subtext, contributors, accentColor, emphasized, delay = 0 }) {
   return (
     <div
-      className="relative pl-6 pr-5 py-5"
+      className="relative px-5 py-5"
       style={{
         background: emphasized ? C.starredBg : C.surface,
-        borderLeft: `${emphasized ? 4 : 2}px solid ${accentColor}`,
+        boxShadow: emphasized
+          ? `inset 0 2px 0 0 ${accentColor}`
+          : `inset 0 1px 0 0 ${accentColor}`,
         opacity: 0,
         animation: `presentReveal 600ms ease-out ${delay}ms forwards`,
       }}

@@ -16,6 +16,10 @@
   --color-red-light: #fff2f3;
   --color-electric-blue: #00a3e0;
 
+  /* Warning (idle / amber) */
+  --color-warning: #b45309;
+  --color-warning-bg: rgba(180,83,9,0.08);
+
   /* Legacy aliases for Tailwind utility compat */
   --color-ink: #000000;
   --color-ink-light: #222222;
@@ -49,6 +53,25 @@
 
 html, body { overflow-x: hidden; max-width: 100%; }
 * { box-sizing: border-box; margin: 0; }
+
+/* ========================================
+   GLOBAL FOCUS-VISIBLE DISCIPLINE
+   Per DESIGN_BRIEF: 3px electric-blue ring with 2px offset on every
+   interactive element. Single rule beats per-component focus styles
+   for consistency and zero forgotten elements.
+   ======================================== */
+:focus-visible {
+  outline: 2px solid var(--color-electric-blue);
+  outline-offset: 2px;
+  border-radius: 2px;
+}
+input:focus-visible,
+textarea:focus-visible {
+  /* Inputs/textareas have their own border-color shift; use a soft inner ring
+     instead of an outer outline to avoid double-ring visual noise. */
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(0,163,224,0.35);
+}
 
 /* -- Animations -- */
 @keyframes fadeInUp { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: translateY(0); } }
@@ -140,7 +163,7 @@ html, body { overflow-x: hidden; max-width: 100%; }
   justify-content: center;
   gap: 8px;
   white-space: nowrap;
-  transition: all 0.15s ease;
+  transition: transform 0.15s ease, opacity 0.15s ease, background 0.15s ease, color 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
   line-height: 1.3;
 }
 .btn-primary {
@@ -161,7 +184,7 @@ html, body { overflow-x: hidden; max-width: 100%; }
   justify-content: center;
   gap: 8px;
   white-space: nowrap;
-  transition: all 0.15s ease;
+  transition: transform 0.15s ease, opacity 0.15s ease, background 0.15s ease, color 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
   line-height: 1.3;
 }
 .btn-primary:hover { background: var(--color-red-hover); transform: scale(1.05); box-shadow: 0 4px 20px rgba(227,6,19,0.3); }
@@ -184,7 +207,7 @@ html, body { overflow-x: hidden; max-width: 100%; }
   justify-content: center;
   gap: 8px;
   white-space: nowrap;
-  transition: all 0.15s ease;
+  transition: transform 0.15s ease, opacity 0.15s ease, background 0.15s ease, color 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
   line-height: 1.3;
 }
 .btn-secondary:hover { background: var(--color-surface); border-color: var(--color-black); }
@@ -193,7 +216,7 @@ html, body { overflow-x: hidden; max-width: 100%; }
   padding: 10px 20px; font-size: 16px; font-weight: 600; border-radius: 6px; cursor: pointer;
   display: inline-flex; align-items: center; gap: 8px; white-space: nowrap;
   font-family: var(--font-ui); text-transform: uppercase; letter-spacing: 0.05em;
-  transition: all 0.15s ease; min-height: 44px; line-height: 1.3;
+  transition: transform 0.15s ease, opacity 0.15s ease, background 0.15s ease, color 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease; min-height: 44px; line-height: 1.3;
   border: 1px solid var(--color-charcoal); background: transparent; color: var(--color-charcoal);
 }
 .btn-ghost:hover { background: var(--color-surface); border-color: var(--color-black); }
@@ -201,7 +224,7 @@ html, body { overflow-x: hidden; max-width: 100%; }
   padding: 10px 20px; font-size: 16px; font-weight: 700; border-radius: 6px; cursor: pointer;
   display: inline-flex; align-items: center; gap: 8px; white-space: nowrap;
   font-family: var(--font-ui); text-transform: uppercase; letter-spacing: 0.05em;
-  transition: all 0.15s ease; min-height: 44px; line-height: 1.3;
+  transition: transform 0.15s ease, opacity 0.15s ease, background 0.15s ease, color 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease; min-height: 44px; line-height: 1.3;
   border: none; background: var(--color-red); color: white;
 }
 .btn-danger:hover { background: var(--color-red-hover); transform: scale(1.05); box-shadow: 0 4px 20px rgba(227,6,19,0.3); }
@@ -280,7 +303,7 @@ html, body { overflow-x: hidden; max-width: 100%; }
 .phase-step {
   display: flex; align-items: center; gap: 7px;
   padding: 6px 14px 6px 7px; border-radius: 6px;
-  transition: all 0.2s; border: none; background: none;
+  transition: transform 0.2s, opacity 0.2s, background 0.2s, color 0.2s, border-color 0.2s, box-shadow 0.2s; border: none; background: none;
   color: rgba(255,255,255,0.35);
 }
 .phase-step-number {
@@ -289,7 +312,7 @@ html, body { overflow-x: hidden; max-width: 100%; }
   font-size: 13px; font-weight: 700; flex-shrink: 0;
   border: 1.5px solid rgba(255,255,255,0.2);
   color: rgba(255,255,255,0.35); background: transparent;
-  transition: all 0.2s;
+  transition: transform 0.2s, opacity 0.2s, background 0.2s, color 0.2s, border-color 0.2s, box-shadow 0.2s;
 }
 .phase-step-active {
   color: white;
@@ -441,7 +464,7 @@ html, body { overflow-x: hidden; max-width: 100%; }
   border: 2px solid var(--color-light-gray);
   background: var(--color-white);
   display: flex; align-items: center; justify-content: center;
-  transition: all 0.3s; cursor: default;
+  transition: transform 0.3s, opacity 0.3s, background 0.3s, color 0.3s, border-color 0.3s, box-shadow 0.3s; cursor: default;
   flex-shrink: 0;
 }
 .rail-dot-done {
@@ -471,14 +494,14 @@ html, body { overflow-x: hidden; max-width: 100%; }
   resize: vertical; outline: none; transition: border 0.2s, box-shadow 0.2s; line-height: 1.6;
 }
 .input-textarea:focus { border-color: var(--color-red); box-shadow: 0 0 0 3px rgba(227,6,19,0.08); }
-.input-hint { font-size: 12px; margin-top: 6px; transition: all 0.3s; }
+.input-hint { font-size: 12px; margin-top: 6px; transition: transform 0.3s, opacity 0.3s, background 0.3s, color 0.3s, border-color 0.3s, box-shadow 0.3s; }
 
 /* -- Pill Buttons (multi-select) -- */
 .pill-group { display: flex; flex-wrap: wrap; gap: 8px; }
 .pill {
   padding: 10px 18px; border-radius: 999px; font-size: 14px; font-weight: 500;
   border: 1px solid var(--color-charcoal); background: transparent; color: var(--color-charcoal);
-  cursor: pointer; font-family: var(--font-sans); transition: all 0.15s;
+  cursor: pointer; font-family: var(--font-sans); transition: transform 0.15s, opacity 0.15s, background 0.15s, color 0.15s, border-color 0.15s, box-shadow 0.15s;
   display: inline-flex; align-items: center; gap: 6px;
 }
 .pill:hover { background: var(--color-surface); }
@@ -494,7 +517,7 @@ html, body { overflow-x: hidden; max-width: 100%; }
 .fluency-option {
   padding: 14px 16px; border-radius: 6px; text-align: left; cursor: pointer; font-family: inherit;
   display: flex; align-items: flex-start; gap: 12px; border: 1.5px solid var(--color-light-gray);
-  background: transparent; transition: all 0.2s ease;
+  background: transparent; transition: transform 0.2s ease, opacity 0.2s ease, background 0.2s ease, color 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
 }
 .fluency-option:hover { border-color: var(--color-gray-300); }
 .fluency-selected { border-color: var(--color-black); background: var(--color-surface); box-shadow: 0 0 0 3px rgba(0,0,0,0.04); }
@@ -519,7 +542,7 @@ html, body { overflow-x: hidden; max-width: 100%; }
 .help-option {
   padding: 10px 18px; border-radius: 999px; text-align: left; cursor: pointer; font-family: inherit;
   display: inline-flex; align-items: center; gap: 8px; border: 1px solid var(--color-charcoal);
-  background: transparent; transition: all 0.15s ease; font-size: 14px; color: var(--color-charcoal);
+  background: transparent; transition: transform 0.15s ease, opacity 0.15s ease, background 0.15s ease, color 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease; font-size: 14px; color: var(--color-charcoal);
 }
 .help-option:hover { background: var(--color-surface); }
 .help-option-selected {
@@ -531,7 +554,7 @@ html, body { overflow-x: hidden; max-width: 100%; }
   width: 100%; padding: 16px 24px; font-size: 16px; font-weight: 700; border: none; border-radius: 6px;
   cursor: pointer; background: var(--color-red); color: white;
   font-family: var(--font-ui); text-transform: uppercase; letter-spacing: 0.05em;
-  animation: fadeInUp 0.5s ease-out both; transition: all 0.2s;
+  animation: fadeInUp 0.5s ease-out both; transition: transform 0.2s, opacity 0.2s, background 0.2s, color 0.2s, border-color 0.2s, box-shadow 0.2s;
   display: flex; align-items: center; justify-content: center; gap: 8px;
   min-height: 52px;
 }
@@ -587,10 +610,16 @@ html, body { overflow-x: hidden; max-width: 100%; }
 .gen-progress-bar {
   width: 100%; height: 3px; background: var(--color-light-gray); border-radius: 3px;
   overflow: hidden; margin-top: 24px;
+  position: relative;
 }
+/* Use transform: scaleX instead of width to avoid layout thrash. The fill
+   element is full-width with transform-origin:left, scaled by --progress
+   (a fraction 0..1) which the indicator sets via inline style. */
 .gen-progress-fill {
-  height: 100%; background: var(--color-red); border-radius: 3px;
-  transition: width 0.4s ease;
+  position: absolute; inset: 0; transform-origin: left center;
+  transform: scaleX(var(--progress, 0));
+  background: var(--color-red); border-radius: 3px;
+  transition: transform 0.4s ease;
 }
 .gen-progress-label {
   text-align: center; margin-top: 8px;
@@ -630,45 +659,58 @@ html, body { overflow-x: hidden; max-width: 100%; }
 }
 
 /* ========================================
-   USE CASE CARD (black header card)
+   USE CASE CARD — editorial treatment
+   Light surface, kicker-tick accent, typographic category title.
+   Replaces the prior "black hero" header so the participant flow
+   reads as one editorial system from Intake → Canvas → Vote.
    ======================================== */
 .use-card {
-  background: var(--color-black);
-  border: 1px solid var(--color-charcoal);
-  border-radius: 8px;
+  background: var(--color-white);
+  border: 1px solid var(--color-light-gray);
+  border-radius: 0;
   overflow: hidden;
   transition: transform 0.25s ease, box-shadow 0.25s ease;
   animation: fadeInUp 0.5s ease-out both;
 }
-.use-card:hover { transform: translateY(-3px); box-shadow: 0 8px 24px rgba(0,0,0,0.15); }
+.use-card:hover { box-shadow: 0 4px 16px rgba(0,0,0,0.06); }
 .use-card-header {
   padding: 24px 24px 20px;
-  color: var(--color-white);
+  color: var(--color-black);
+  border-bottom: 1px solid var(--color-light-gray);
 }
 .use-card-header .icon-badge {
-  width: 44px; height: 44px; border-radius: 50%;
-  border: 2px solid var(--color-electric-blue);
+  width: 36px; height: 36px; border-radius: 50%;
+  border: 1px solid var(--cat-color, var(--color-electric-blue));
   display: flex; align-items: center; justify-content: center;
-  color: var(--color-electric-blue); margin-bottom: 16px;
-  background: rgba(0,163,224,0.08);
+  color: var(--cat-color, var(--color-electric-blue)); margin-bottom: 14px;
+  background: transparent;
 }
 .use-card-header h2 {
-  font-family: var(--font-heading); font-size: 24px; font-weight: 700;
-  margin: 0 0 6px; text-transform: none; letter-spacing: 0;
+  font-family: var(--font-heading); font-size: 22px; font-weight: 700;
+  margin: 0 0 6px; text-transform: none; letter-spacing: -0.01em;
 }
 .use-card-header .use-card-desc {
-  font-size: 13px; color: rgba(255,255,255,0.5); margin-bottom: 10px;
+  font-size: 13px; color: var(--color-dark-gray); margin-bottom: 10px;
 }
 .use-card-header .use-card-principle {
-  font-size: 14px; color: rgba(255,255,255,0.75); line-height: 1.55;
-  font-style: italic;
+  font-size: 14px; color: var(--color-dark-gray); line-height: 1.55;
+  font-style: italic; opacity: 0.85;
 }
 .use-card-number {
-  font-family: var(--font-ui); font-size: 11px; font-weight: 700;
-  text-transform: uppercase; letter-spacing: 0.12em;
-  color: var(--cat-color, var(--color-electric-blue));
-  margin-bottom: 12px;
-  display: flex; align-items: center; gap: 8px;
+  font-family: var(--font-ui); font-size: 10px; font-weight: 700;
+  text-transform: uppercase; letter-spacing: 0.28em;
+  color: var(--color-dark-gray);
+  margin-bottom: 14px;
+  display: flex; align-items: center; gap: 10px;
+}
+/* Kicker tick: 1px x 16px red bar before the small-caps label */
+.use-card-number::before {
+  content: "";
+  display: inline-block;
+  width: 1px;
+  height: 16px;
+  background: var(--cat-color, var(--color-red));
+  flex-shrink: 0;
 }
 
 /* Ideas inside the card */
@@ -712,7 +754,6 @@ html, body { overflow-x: hidden; max-width: 100%; }
 .rule-card .rule-principle-text {
   font-size: 15px; font-style: italic; color: var(--color-dark-gray);
   line-height: 1.6; margin-bottom: 24px;
-  padding-left: 16px; border-left: 3px solid var(--color-red);
 }
 
 /* Legacy rule-section styling (compat) */
@@ -746,9 +787,8 @@ html, body { overflow-x: hidden; max-width: 100%; }
   color: var(--color-black);
 }
 .rule-principle {
-  border-left: 3px solid var(--color-red);
   padding: 12px 20px; margin-bottom: 24px;
-  background: var(--color-surface); border-radius: 0 6px 6px 0;
+  background: var(--color-surface); border-radius: 6px;
 }
 .rule-principle p { font-size: 15px; font-style: italic; color: var(--color-dark-gray); margin: 0; line-height: 1.6; }
 
@@ -762,14 +802,13 @@ html, body { overflow-x: hidden; max-width: 100%; }
 .action-card {
   display: flex; align-items: flex-start; gap: 10px; padding: 14px; border-radius: 6px;
   background: white; border: 1px solid var(--color-light-gray);
-  transition: all 0.35s ease;
+  transition: transform 0.35s ease, opacity 0.35s ease, background 0.35s ease, color 0.35s ease, border-color 0.35s ease, box-shadow 0.35s ease;
   box-shadow: 0 1px 3px rgba(0,0,0,0.04);
 }
 .action-card:hover { box-shadow: 0 4px 12px rgba(0,0,0,0.08); transform: translateY(-3px); border-color: var(--color-gray-300); }
 .action-starred {
   background: var(--color-red-light); border-color: var(--color-red);
-  border-left: 3px solid var(--color-red);
-  box-shadow: -3px 0 12px rgba(227,6,19,0.12), 0 1px 3px rgba(0,0,0,0.04);
+  box-shadow: 0 1px 3px rgba(0,0,0,0.04);
 }
 .action-blooming { animation: bloomBg 0.5s ease-out; }
 .action-entering { animation: fadeInUp 0.4s ease-out both; }
@@ -781,7 +820,6 @@ html, body { overflow-x: hidden; max-width: 100%; }
 }
 .use-card-body .action-starred {
   background: var(--color-red-light); border-color: var(--color-red);
-  border-left: 3px solid var(--color-red);
 }
 
 .star-btn {
@@ -801,8 +839,9 @@ html, body { overflow-x: hidden; max-width: 100%; }
   display: flex; gap: 6px; flex-shrink: 0; margin-top: 1px;
 }
 .action-inline-btn {
-  background: none; border: none; cursor: pointer; padding: 8px; border-radius: 4px;
-  color: var(--color-gray-300); transition: all 0.15s; display: flex; align-items: center;
+  background: none; border: none; cursor: pointer; padding: 12px; border-radius: 4px;
+  min-width: 44px; min-height: 44px;
+  color: var(--color-gray-300); transition: transform 0.15s, opacity 0.15s, background 0.15s, color 0.15s, border-color 0.15s, box-shadow 0.15s; display: flex; align-items: center; justify-content: center;
 }
 .action-inline-btn:hover { color: var(--color-dark-gray); background: var(--color-surface); }
 .action-inline-delete:hover { color: #c53030; background: var(--color-red-light); }
@@ -810,7 +849,7 @@ html, body { overflow-x: hidden; max-width: 100%; }
   display: flex; align-items: center; gap: 4px; padding: 4px 10px; border-radius: 4px;
   background: var(--color-red-light); border: 1px solid var(--color-red); color: #c53030;
   font-size: 12px; font-weight: 500; font-family: var(--font-sans); cursor: pointer;
-  animation: fadeIn 0.15s ease-out; transition: all 0.15s;
+  animation: fadeIn 0.15s ease-out; transition: transform 0.15s, opacity 0.15s, background 0.15s, color 0.15s, border-color 0.15s, box-shadow 0.15s;
 }
 .action-confirm-delete:hover { background: #FEE2E2; border-color: #F87171; }
 
@@ -819,7 +858,7 @@ html, body { overflow-x: hidden; max-width: 100%; }
    ======================================== */
 .rule-empty {
   border: 2px dashed var(--color-light-gray); border-radius: 8px; padding: 36px 24px; text-align: center;
-  margin-bottom: 18px; transition: all 0.2s;
+  margin-bottom: 18px; transition: transform 0.2s, opacity 0.2s, background 0.2s, color 0.2s, border-color 0.2s, box-shadow 0.2s;
 }
 .rule-empty:hover { background: var(--color-surface); border-color: var(--color-gray-300); }
 .rule-empty-title { font-weight: 600; font-size: 14px; margin: 0 0 6px; color: var(--color-black); }
@@ -829,13 +868,13 @@ html, body { overflow-x: hidden; max-width: 100%; }
 .add-action-btn {
   display: flex; align-items: center; gap: 8px; padding: 12px 16px; font-size: 14px;
   color: var(--color-dark-gray); background: var(--color-surface); border: 1.5px dashed var(--color-gray-300); border-radius: 6px;
-  cursor: pointer; width: 100%; font-family: inherit; transition: all 0.2s;
+  cursor: pointer; width: 100%; font-family: inherit; transition: transform 0.2s, opacity 0.2s, background 0.2s, color 0.2s, border-color 0.2s, box-shadow 0.2s;
 }
 .add-action-btn:hover { border-color: var(--color-charcoal); color: var(--color-black); background: var(--color-light-gray); border-style: solid; }
 .add-action-icon {
   width: 22px; height: 22px; border-radius: 4px; background: var(--color-surface);
   display: flex; align-items: center; justify-content: center; color: var(--color-dark-gray);
-  transition: all 0.15s;
+  transition: transform 0.15s, opacity 0.15s, background 0.15s, color 0.15s, border-color 0.15s, box-shadow 0.15s;
 }
 .add-action-btn:hover .add-action-icon { background: var(--color-light-gray); }
 .add-action-expanded { display: flex; gap: 8px; animation: fadeIn 0.2s ease-out; }
@@ -849,7 +888,7 @@ html, body { overflow-x: hidden; max-width: 100%; }
   font-family: var(--font-ui); font-size: 12px; font-weight: 700;
   text-transform: uppercase; letter-spacing: 0.04em;
   border: none; border-radius: 6px; color: white; cursor: pointer;
-  white-space: nowrap; transition: all 0.15s;
+  white-space: nowrap; transition: transform 0.15s, opacity 0.15s, background 0.15s, color 0.15s, border-color 0.15s, box-shadow 0.15s;
   background: var(--color-charcoal) !important;
 }
 .btn-go-deeper:hover { background: var(--color-black) !important; }
@@ -871,13 +910,13 @@ html, body { overflow-x: hidden; max-width: 100%; }
   background: var(--color-white);
   box-shadow: 0 -4px 16px rgba(0,0,0,0.06);
 }
-.gate-counter { font-size: 13px; color: var(--color-dark-gray); transition: all 0.3s; }
+.gate-counter { font-size: 13px; color: var(--color-dark-gray); transition: transform 0.3s, opacity 0.3s, background 0.3s, color 0.3s, border-color 0.3s, box-shadow 0.3s; }
 .gate-counter strong { color: var(--color-black); font-weight: 700; }
 .counter-pulse { animation: counterPulse 0.6s ease-out; }
 .btn-gate {
   padding: 12px 24px; font-size: 13px; font-weight: 700; border: none; border-radius: 6px;
   cursor: pointer; font-family: var(--font-ui); text-transform: uppercase; letter-spacing: 0.05em;
-  transition: all 0.2s; min-height: 44px;
+  transition: transform 0.2s, opacity 0.2s, background 0.2s, color 0.2s, border-color 0.2s, box-shadow 0.2s; min-height: 44px;
   display: inline-flex; align-items: center; gap: 8px;
   background: var(--color-black); color: white;
 }
@@ -932,7 +971,7 @@ html, body { overflow-x: hidden; max-width: 100%; }
   position: relative; z-index: 1; margin-top: 2px; flex-shrink: 0;
   width: 32px; height: 32px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.12);
   background: rgba(255,255,255,0.04); cursor: pointer; display: flex; align-items: center; justify-content: center;
-  color: rgba(255,255,255,0.5); transition: all 0.15s;
+  color: rgba(255,255,255,0.5); transition: transform 0.15s, opacity 0.15s, background 0.15s, color 0.15s, border-color 0.15s, box-shadow 0.15s;
 }
 .chat-close-btn:hover { background: rgba(255,255,255,0.08); border-color: rgba(255,255,255,0.2); color: white; }
 .chat-messages { flex: 1; overflow-y: auto; padding: 20px 18px; display: flex; flex-direction: column; gap: 16px; }
@@ -970,7 +1009,7 @@ html, body { overflow-x: hidden; max-width: 100%; }
 }
 .chat-idea {
   display: flex; align-items: flex-start; gap: 10px; padding: 11px 14px; border-radius: 6px;
-  background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.08); border-left: 3px solid rgba(227,6,19,0.3);
+  background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.12);
 }
 .chat-idea-added { background: rgba(227,6,19,0.04); border-color: rgba(227,6,19,0.2); }
 .chat-idea-text { flex: 1; font-size: 13px; line-height: 1.5; margin: 0; color: rgba(255,255,255,0.85); }
@@ -979,7 +1018,7 @@ html, body { overflow-x: hidden; max-width: 100%; }
   padding: 5px 10px; cursor: pointer; display: flex; align-items: center; gap: 4px;
   font-family: var(--font-ui); font-size: 11px; font-weight: 500; text-transform: uppercase;
   letter-spacing: 0.04em;
-  color: rgba(255,255,255,0.5); transition: all 0.2s;
+  color: rgba(255,255,255,0.5); transition: transform 0.2s, opacity 0.2s, background 0.2s, color 0.2s, border-color 0.2s, box-shadow 0.2s;
 }
 .chat-idea-btn:hover:not(:disabled) { border-color: var(--color-red); color: var(--color-red); }
 .chat-idea-btn-added { background: rgba(227,6,19,0.08); border-color: var(--color-red); color: var(--color-red); cursor: default; }
@@ -1000,7 +1039,7 @@ html, body { overflow-x: hidden; max-width: 100%; }
 .chat-input::placeholder { color: rgba(255,255,255,0.3); }
 .chat-send-btn {
   padding: 11px 14px; border-radius: 6px; border: none; background: rgba(255,255,255,0.08);
-  color: rgba(255,255,255,0.3); cursor: not-allowed; transition: all 0.2s;
+  color: rgba(255,255,255,0.3); cursor: not-allowed; transition: transform 0.2s, opacity 0.2s, background 0.2s, color 0.2s, border-color 0.2s, box-shadow 0.2s;
 }
 .chat-send-active { background: var(--color-red); color: white; cursor: pointer; }
 .chat-send-active:hover { background: var(--color-red-hover); }
@@ -1110,7 +1149,7 @@ html, body { overflow-x: hidden; max-width: 100%; }
   background: none; border: none; cursor: pointer;
   font-family: var(--font-ui); font-size: 13px; font-weight: 500;
   color: var(--color-dark-gray); display: inline-flex; align-items: center; gap: 6px;
-  padding: 8px 16px; border-radius: 6px; transition: all 0.15s;
+  padding: 8px 16px; border-radius: 6px; transition: transform 0.15s, opacity 0.15s, background 0.15s, color 0.15s, border-color 0.15s, box-shadow 0.15s;
 }
 .btn-reset-link:hover { color: var(--color-red); background: var(--color-red-light); }
 

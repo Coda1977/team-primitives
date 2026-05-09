@@ -67,12 +67,12 @@ function RosterRow({ participant, now }) {
           {isIdle && (
             <span
               className="inline-flex items-center gap-1 text-xs"
-              style={{ color: "#b45309" }}
+              style={{ color: C.warning }}
               title="No activity for >90s"
             >
               <span
                 className="inline-block w-2 h-2 rounded-full"
-                style={{ background: "#facc15" }}
+                style={{ background: C.warningDot }}
               />
               idle {humanMs(idleMs)}
             </span>

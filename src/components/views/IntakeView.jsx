@@ -6,6 +6,8 @@ import { useState } from "react";
 import { useMutation } from "convex/react";
 import { api } from "../../../convex/_generated/api";
 import { C } from "../../config/constants";
+import StatusBlock from "../shared/StatusBlock";
+import { useOnlineStatus } from "../../hooks/useOnlineStatus";
 
 const FADE_KEYFRAMES = `
   @keyframes intakeReveal {
@@ -53,6 +55,7 @@ export default function IntakeView({ session, participant, onSubmitted }) {
   });
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState(null);
+  const online = useOnlineStatus();
 
   const update = (key) => (e) =>
     setAnswers((a) => ({ ...a, [key]: e.target.value }));
@@ -107,9 +110,12 @@ export default function IntakeView({ session, participant, onSubmitted }) {
           </div>
           <span
             className="inline-block w-1.5 h-1.5 rounded-full"
-            style={{ background: C.electricBlue }}
-            aria-label="online"
-            title="online"
+            style={{
+              background: online ? C.electricBlue : C.gray500,
+              border: online ? "none" : `1px solid ${C.lightGray}`,
+            }}
+            aria-label={online ? "online" : "offline"}
+            title={online ? "Online" : "Offline. Changes save when you reconnect."}
           />
         </div>
       </header>
@@ -143,7 +149,7 @@ export default function IntakeView({ session, participant, onSubmitted }) {
               color: C.darkGray,
             }}
           >
-            Three questions about your <strong>function</strong> — not your
+            Three questions about your <strong>function</strong>, not your
             personal role. Answer however you'd describe it to a colleague.
           </p>
         </div>
@@ -232,16 +238,10 @@ export default function IntakeView({ session, participant, onSubmitted }) {
           })}
 
           {error && (
-            <div
-              role="alert"
-              className="text-sm px-4 py-3 border-l-4 mt-8 ml-[3.75rem]"
-              style={{
-                borderColor: C.red,
-                background: C.redLight,
-                color: C.darkGray,
-              }}
-            >
-              {error}
+            <div className="mt-8 ml-[3.75rem]">
+              <StatusBlock variant="alert" kicker="Couldn't submit">
+                {error}
+              </StatusBlock>
             </div>
           )}
         </form>

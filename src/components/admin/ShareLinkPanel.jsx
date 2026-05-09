@@ -47,7 +47,7 @@ export default function ShareLinkPanel({ session, adminKey }) {
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
         <UrlBlock label="Participant URL" url={participantUrl} kicker="Share with the team" />
-        <UrlBlock label="Admin URL" url={adminUrl} kicker="Keep private — bookmark it" privateNote />
+        <UrlBlock label="Admin URL" url={adminUrl} kicker="Keep private, bookmark it" privateNote />
       </div>
     </div>
   );

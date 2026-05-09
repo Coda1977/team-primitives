@@ -14,6 +14,8 @@ import { useCanvasDispatch } from "../../hooks/useCanvasDispatch";
 import CategorySection from "../primitives/CategorySection";
 import ChatDrawer from "../shared/ChatDrawer";
 import ConfirmModal from "../shared/ConfirmModal";
+import StatusBlock from "../shared/StatusBlock";
+import { useOnlineStatus } from "../../hooks/useOnlineStatus";
 
 export default function CanvasView({ session, participant }) {
   return (
@@ -25,6 +27,7 @@ export default function CanvasView({ session, participant }) {
 
 function CanvasInner({ session, participant }) {
   const { triggerFlash } = useFlash();
+  const online = useOnlineStatus();
   const canvas = useQuery(api.canvas.getMyCanvas, {
     participantId: participant._id,
   });
@@ -105,43 +108,79 @@ function CanvasInner({ session, participant }) {
     <div className="canvas-layout">
       <div className="canvas-rules">
         <div className="canvas-inner">
+          {/* Editorial header — matches Intake/AdminBoard broadcast pattern */}
           <header
-            className="max-w-3xl mx-auto mb-8 flex items-center justify-between text-xs text-neutral-500 border-b pb-3"
+            className="max-w-3xl mx-auto mb-10 pb-4 flex items-center justify-between border-b"
             style={{ borderColor: C.lightGray }}
           >
-            <span>
-              {session.functionName} · {participant.name}
-            </span>
-            <span aria-label="online" title="online">●</span>
+            <div className="flex items-center gap-3 text-xs">
+              <span
+                aria-hidden="true"
+                className="inline-block w-1 h-4"
+                style={{ background: C.red }}
+              />
+              <span
+                className="uppercase tracking-[0.28em] font-bold"
+                style={{ color: C.darkGray }}
+              >
+                {session.functionName}
+              </span>
+              <span style={{ color: C.lightGray }}>·</span>
+              <span style={{ color: C.darkGray }}>{participant.name}</span>
+            </div>
+            <span
+              aria-label={online ? "online" : "offline"}
+              title={online ? "Online" : "Offline. Changes save when you reconnect."}
+              className="inline-block w-1.5 h-1.5 rounded-full"
+              style={{
+                background: online ? C.electricBlue : C.gray500,
+                border: online ? "none" : `1px solid ${C.lightGray}`,
+              }}
+            />
           </header>
 
-          <div className="canvas-orientation animate-fade-in">
-            <div className="orientation-stats">
-              <span className="orientation-stat">
-                <strong>{totals.total}</strong> ideas
+          <div className="max-w-3xl mx-auto mb-12 animate-fade-in">
+            <p
+              className="text-[10px] font-bold uppercase tracking-[0.3em] mb-4"
+              style={{ color: C.gray500 }}
+            >
+              Your canvas
+            </p>
+            <h1
+              className="font-bold leading-[1.05] tracking-tight mb-5"
+              style={{
+                fontSize: "clamp(1.875rem, 3.5vw, 2.5rem)",
+                letterSpacing: "-0.025em",
+              }}
+            >
+              Star 5–10 ideas to send to the team board.
+            </h1>
+            <div
+              className="flex items-baseline gap-4 flex-wrap text-sm"
+              style={{ color: C.darkGray }}
+            >
+              <span>
+                <span className="font-bold text-black tabular-nums">{totals.total}</span> ideas
               </span>
-              <span className="orientation-dot">·</span>
-              <span className="orientation-stat">
-                <strong>{totals.categoriesFilled}</strong> of 6 categories
+              <span style={{ color: C.lightGray }}>·</span>
+              <span>
+                <span className="font-bold text-black tabular-nums">{totals.categoriesFilled}</span> of 6 categories
               </span>
               {totals.starred > 0 && (
                 <>
-                  <span className="orientation-dot">·</span>
-                  <span className="orientation-stat">
+                  <span style={{ color: C.lightGray }}>·</span>
+                  <span>
                     <Star
-                      size={14}
-                      fill={C.accentGlow}
-                      color={C.accentGlow}
+                      size={13}
+                      fill={C.red}
+                      color={C.red}
                       style={{ verticalAlign: "text-bottom" }}
                     />{" "}
-                    <strong>{totals.starred}</strong> starred
+                    <span className="font-bold text-black tabular-nums">{totals.starred}</span> starred
                   </span>
                 </>
               )}
             </div>
-            <p className="orientation-hint">
-              Star 5–10 ideas to send to the team board. Edit, delete, or add your own.
-            </p>
           </div>
 
           <div className="card-stack">
@@ -158,12 +197,10 @@ function CanvasInner({ session, participant }) {
           </div>
 
           {error && (
-            <div
-              role="alert"
-              className="text-sm px-4 py-3 border-l-4 mt-6 max-w-3xl mx-auto"
-              style={{ borderColor: C.red, background: C.redLight, color: C.darkGray }}
-            >
-              {error}
+            <div className="mt-6 max-w-3xl mx-auto">
+              <StatusBlock variant="alert" kicker="Couldn't submit">
+                {error}
+              </StatusBlock>
             </div>
           )}
         </div>
@@ -181,6 +218,9 @@ function CanvasInner({ session, participant }) {
             </div>
           </div>
           <div
+            role="status"
+            aria-live="polite"
+            aria-atomic="true"
             style={{ fontSize: 13, color: "var(--color-dark-gray)", textAlign: "center" }}
           >
             {totals.starred === 0
@@ -221,7 +261,7 @@ function CanvasInner({ session, participant }) {
       <ConfirmModal
         open={confirmingFinalize}
         title="Submit your stars"
-        message={`Submit ${totals.starred} starred ideas to the team board? You won't be able to add or change ideas after this — but you can still vote later.`}
+        message={`Submit ${totals.starred} starred ideas to the team board? You won't be able to add or change ideas after this. You can still vote later.`}
         confirmLabel={finalizing ? "Submitting…" : "Submit stars"}
         cancelLabel="Cancel"
         onConfirm={onConfirmFinalize}

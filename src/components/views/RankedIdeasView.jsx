@@ -6,6 +6,7 @@
 // hero block; other top finishers cluster below; ranked list reads like
 // credits — generous row heights, refined hairline dividers.
 
+import { useMemo } from "react";
 import { CATEGORIES } from "../../config/categories";
 import { C } from "../../config/constants";
 
@@ -22,6 +23,31 @@ export default function RankedIdeasView({
   votesPerParticipant,
   variant = "compact",
 }) {
+  // Compute display ranks with tie handling (1, 2, 2, 4, ...). Memoized: the
+  // parent (PresentView, MyBoardView, AdminBoard) re-renders frequently from
+  // Convex subscriptions, but `ranked` is stable across most ticks.
+  // Hook order: must be called before any early returns (rules-of-hooks).
+  const { winners, otherTop, rest, hasTies } = useMemo(() => {
+    const withRank = [];
+    let prevVoteCount = null;
+    let prevRank = 0;
+    (ranked ?? []).forEach((idea, idx) => {
+      if (idea.voteCount !== prevVoteCount) {
+        prevRank = idx + 1;
+        prevVoteCount = idea.voteCount;
+      }
+      withRank.push({ ...idea, rank: prevRank });
+    });
+    return {
+      winners: withRank.filter((i) => i.rank === 1),
+      otherTop: withRank.filter((i) => i.rank > 1 && i.rank <= 3),
+      rest: withRank.filter((i) => i.rank > 3),
+      hasTies: withRank.some(
+        (i, idx, arr) => idx > 0 && arr[idx - 1].voteCount === i.voteCount
+      ),
+    };
+  }, [ranked]);
+
   if (!ranked || ranked.length === 0) {
     return (
       <p className="text-sm text-neutral-500 italic">
@@ -29,25 +55,6 @@ export default function RankedIdeasView({
       </p>
     );
   }
-
-  // Compute display ranks with tie handling (1, 2, 2, 4, ...)
-  const withDisplayRank = [];
-  let prevVoteCount = null;
-  let prevRank = 0;
-  ranked.forEach((idea, idx) => {
-    if (idea.voteCount !== prevVoteCount) {
-      prevRank = idx + 1;
-      prevVoteCount = idea.voteCount;
-    }
-    withDisplayRank.push({ ...idea, rank: prevRank });
-  });
-
-  const winners = withDisplayRank.filter((i) => i.rank === 1);
-  const otherTop = withDisplayRank.filter((i) => i.rank > 1 && i.rank <= 3);
-  const rest = withDisplayRank.filter((i) => i.rank > 3);
-  const hasTies = withDisplayRank.some(
-    (i, idx, arr) => idx > 0 && arr[idx - 1].voteCount === i.voteCount
-  );
 
   if (variant === "stage") {
     return (

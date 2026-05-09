@@ -6,6 +6,7 @@ import { Sparkles, RotateCw, AlertTriangle } from "lucide-react";
 import { useAction } from "convex/react";
 import { api } from "../../../convex/_generated/api";
 import { C } from "../../config/constants";
+import StatusBlock from "../shared/StatusBlock";
 
 export default function SynthesizeButton({ sessionId, adminKey, lockedCount, hasExisting, isRunning }) {
   const synthesize = useAction(api.ai.synthesize.run);
@@ -50,14 +51,13 @@ export default function SynthesizeButton({ sessionId, adminKey, lockedCount, has
         {label}
       </button>
       {error && (
-        <div
-          role="alert"
-          className="text-sm px-4 py-3 border-l-4 flex items-start gap-2"
-          style={{ borderColor: C.red, background: C.redLight, color: C.darkGray }}
+        <StatusBlock
+          variant="alert"
+          kicker="Synthesis failed"
+          icon={<AlertTriangle size={16} />}
         >
-          <AlertTriangle size={16} className="flex-shrink-0 mt-0.5" />
-          <span>{error}</span>
-        </div>
+          {error}
+        </StatusBlock>
       )}
     </div>
   );

@@ -67,7 +67,7 @@ export default function VoteView({ session, participant }) {
       } catch (err) {
         console.error("Remove vote failed", err);
         showToast(
-          err?.message ?? "Couldn't remove that vote — try again."
+          err?.message ?? "Couldn't remove that vote, try again."
         );
       }
     } else {
@@ -77,7 +77,7 @@ export default function VoteView({ session, participant }) {
       } catch (err) {
         console.error("Cast vote failed", err);
         showToast(
-          err?.message ?? "Vote didn't go through — try again."
+          err?.message ?? "Vote didn't go through, try again."
         );
       }
     }
@@ -89,6 +89,9 @@ export default function VoteView({ session, participant }) {
       <div
         className="sticky top-0 z-40 px-4 py-4 text-center text-xs font-bold uppercase tracking-[0.28em]"
         style={{ background: C.black, color: C.white }}
+        role="status"
+        aria-live="polite"
+        aria-atomic="true"
       >
         {allUsed ? (
           <>

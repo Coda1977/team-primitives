@@ -6,6 +6,7 @@ import { useMutation, useQuery } from "convex/react";
 import { api } from "../../../convex/_generated/api";
 import { Vote, Lock, RotateCcw } from "lucide-react";
 import { C } from "../../config/constants";
+import StatusBlock from "../shared/StatusBlock";
 
 export default function VotingControlsPanel({ session, adminKey }) {
   const tallies = useQuery(api.votes.getAdminTallies, {
@@ -128,7 +129,7 @@ export default function VotingControlsPanel({ session, adminKey }) {
           {tallies?.ranked && tallies.ranked.length > 0 && (
             <details className="border" style={{ borderColor: C.lightGray }}>
               <summary className="px-3 py-2 text-xs font-semibold uppercase tracking-wider cursor-pointer hover:bg-white">
-                Live tally (admin-only) — show
+                Live tally (admin-only)
               </summary>
               <ul className="px-3 pb-3 pt-1 space-y-1">
                 {tallies.ranked.map((c) => (
@@ -180,12 +181,10 @@ export default function VotingControlsPanel({ session, adminKey }) {
       )}
 
       {error && (
-        <div
-          role="alert"
-          className="text-xs px-3 py-2 mt-3 border-l-4"
-          style={{ borderColor: C.red, background: C.redLight, color: C.darkGray }}
-        >
-          {error}
+        <div className="mt-3">
+          <StatusBlock variant="alert" kicker="Voting error" compact>
+            {error}
+          </StatusBlock>
         </div>
       )}
     </div>

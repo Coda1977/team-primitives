@@ -131,10 +131,7 @@ export default function GeneratingIndicator({ onReady, apiReady = false }) {
                 <div
                   className="gen-progress-fill"
                   style={{
-                    width: `${Math.min(
-                      Math.round((step / steps.length) * 100),
-                      100
-                    )}%`,
+                    "--progress": Math.min(step / steps.length, 1),
                   }}
                 />
               </div>

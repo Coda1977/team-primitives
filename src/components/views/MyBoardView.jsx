@@ -15,7 +15,9 @@ import { exportParticipantDocx } from "../../utils/export";
 import VoteView from "./VoteView";
 import RankedIdeasView from "./RankedIdeasView";
 import ConfirmModal from "../shared/ConfirmModal";
+import StatusBlock from "../shared/StatusBlock";
 import { useToast } from "../../context/useToast";
+import { useOnlineStatus } from "../../hooks/useOnlineStatus";
 
 export default function MyBoardView({ session, participant }) {
   const canvas = useQuery(api.canvas.getMyCanvas, {
@@ -97,7 +99,7 @@ export default function MyBoardView({ session, participant }) {
     <ConfirmModal
       open={resetConfirmOpen}
       title="Reset this device?"
-      message="You'll need to re-enter your name to rejoin from this browser. Your contributions stay in the workshop — only the local link to this device is cleared."
+      message="You'll need to re-enter your name to rejoin from this browser. Your contributions stay in the workshop. Only the local link to this device is cleared."
       confirmLabel="Reset"
       cancelLabel="Cancel"
       onConfirm={onResetConfirm}
@@ -196,6 +198,7 @@ export default function MyBoardView({ session, participant }) {
 }
 
 function TabBar({ tabs, activeTab, onChange, session, participant }) {
+  const online = useOnlineStatus();
   return (
     <div className="max-w-3xl mx-auto">
       <header
@@ -218,9 +221,12 @@ function TabBar({ tabs, activeTab, onChange, session, participant }) {
         </div>
         <span
           className="inline-block w-1.5 h-1.5 rounded-full"
-          style={{ background: C.electricBlue }}
-          aria-label="online"
-          title="online"
+          style={{
+            background: online ? C.electricBlue : C.gray500,
+            border: online ? "none" : `1px solid ${C.lightGray}`,
+          }}
+          aria-label={online ? "online" : "offline"}
+          title={online ? "Online" : "Offline. Changes save when you reconnect."}
         />
       </header>
       {tabs.length > 1 && (
@@ -261,53 +267,48 @@ function TabBar({ tabs, activeTab, onChange, session, participant }) {
 function SubheaderForState({ session, stats, synthesis }) {
   if (session.votingStatus === "open") {
     return (
-      <div
-        className="border-l-4 px-5 py-3 mb-6"
-        style={{ borderColor: C.red, background: C.starredBg }}
-      >
-        <p className="text-sm">
-          <strong>Voting is open.</strong> You have{" "}
-          <strong>{session.votesPerParticipant ?? 3}</strong> votes. Click
-          "Vote" to choose your team's priorities.
-        </p>
-      </div>
+      <StatusBlock variant="success" kicker="Voting open" className="mb-6">
+        You have <strong>{session.votesPerParticipant ?? 3}</strong> votes. Open
+        the "Vote" tab to choose your team's priorities.
+      </StatusBlock>
     );
   }
   if (session.votingStatus === "closed_with_results") {
     return (
-      <div
-        className="border-l-4 px-5 py-3 mb-6"
-        style={{ borderColor: C.electricBlue, background: "rgba(0,163,224,0.06)" }}
-      >
-        <p className="text-sm">
-          <strong>Voting is complete.</strong> See the team's top ideas in
-          "Final results".
-        </p>
-      </div>
+      <StatusBlock variant="info" kicker="Voting complete" className="mb-6">
+        See the team's top ideas in the "Final results" tab.
+      </StatusBlock>
     );
   }
   if (synthesis) {
     return (
-      <div
-        className="border-l-4 px-5 py-3 mb-6"
-        style={{ borderColor: C.electricBlue, background: "rgba(0,163,224,0.06)" }}
-      >
-        <p className="text-sm">
-          <strong>The team board is ready.</strong> Click "Team board" to see
-          how everyone's ideas come together.
-        </p>
-      </div>
+      <StatusBlock variant="info" kicker="Team board ready" className="mb-6">
+        Open the "Team board" tab to see how everyone's ideas come together.
+      </StatusBlock>
     );
   }
   return (
     <div
-      className="border-l-4 px-5 py-3 mb-6"
-      style={{ borderColor: C.electricBlue, background: "rgba(0,163,224,0.06)" }}
+      className="px-5 py-4 mb-6"
+      style={{ background: "rgba(0,163,224,0.06)" }}
     >
+      <div className="flex items-center gap-3 mb-2">
+        <span
+          aria-hidden="true"
+          className="inline-block w-1 h-4"
+          style={{ background: C.electricBlue }}
+        />
+        <span
+          className="text-[10px] font-bold uppercase tracking-[0.28em]"
+          style={{ color: C.electricBlue }}
+        >
+          Locked in
+        </span>
+      </div>
       <h1 className="text-xl font-bold tracking-tight">
-        Your contribution is locked in ✓
+        Your contribution is in ✓
       </h1>
-      <p className="text-sm text-neutral-700 mt-1">
+      <p className="text-sm mt-2" style={{ color: C.darkGray, lineHeight: 1.55 }}>
         You starred <strong>{stats.starred}</strong> of <strong>{stats.total}</strong>{" "}
         ideas. The team board, voting, and final results will appear here as
         your admin runs the next phases.

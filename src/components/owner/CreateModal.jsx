@@ -6,6 +6,7 @@ import { buildAdminUrl } from "../../utils/adminKey";
 import ModalShell from "./ModalShell";
 import Field from "./Field";
 import UrlBlock from "./UrlBlock";
+import StatusBlock from "../shared/StatusBlock";
 
 export default function CreateModal({ ownerKey, onClose }) {
   const createSession = useMutation(api.ownerQueries.createSessionAsOwner);
@@ -75,13 +76,9 @@ export default function CreateModal({ ownerKey, onClose }) {
           />
 
           {error && (
-            <div
-              role="alert"
-              className="text-sm px-4 py-3 border-l-4"
-              style={{ borderColor: C.red, background: C.redLight, color: C.darkGray }}
-            >
+            <StatusBlock variant="alert" kicker="Couldn't create">
               {error}
-            </div>
+            </StatusBlock>
           )}
 
           <div className="flex items-center justify-end gap-3 pt-2">
@@ -114,15 +111,9 @@ function CreatedSuccess({ code, adminKey, onClose }) {
 
   return (
     <div className="space-y-5">
-      <div
-        className="border-l-4 px-4 py-3 text-sm"
-        style={{ borderColor: C.red, background: C.redLight }}
-      >
-        <strong className="block uppercase tracking-wider text-xs mb-1">
-          🔖 Admin URL copied to your clipboard
-        </strong>
+      <StatusBlock variant="success" kicker="🔖 Admin URL copied">
         It's also visible in your dashboard now. Share the participant URL with your team.
-      </div>
+      </StatusBlock>
 
       <UrlBlock label="Admin URL" url={adminUrl} privateNote />
       <UrlBlock label="Participant URL" url={participantUrl} />
