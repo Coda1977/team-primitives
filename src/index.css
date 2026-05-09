@@ -719,9 +719,21 @@ textarea:focus-visible {
 .playbook-canvas { background: #f7f8fa; }
 .playbook-canvas .gate-bar { background: #f5f6f9; }
 .canvas-inner {
-  width: min(100% - 24px, 900px);
+  /* Wider on desktop so the 2-col category grid in CanvasView can breathe.
+     Reading width is preserved per-card by CategorySection's internal layout. */
+  width: min(100% - 24px, 1280px);
   margin: 0 auto;
-  padding: 0 0 96px;
+  padding: 0 24px 96px;
+}
+@media (min-width: 768px) {
+  .canvas-inner {
+    padding: 0 32px 96px;
+  }
+}
+@media (min-width: 1024px) {
+  .canvas-inner {
+    padding: 0 48px 96px;
+  }
 }
 .canvas-orientation {
   padding: 28px 0 24px;

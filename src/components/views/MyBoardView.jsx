@@ -116,8 +116,8 @@ export default function MyBoardView({ session, participant }) {
   if (activeTab === "vote") {
     return (
       <>
-        <main className="min-h-screen bg-white text-black px-6 pt-8">
-          <div className="max-w-3xl mx-auto">
+        <main className="min-h-screen bg-white text-black px-4 md:px-8 lg:px-12 pt-8">
+          <div className="max-w-6xl mx-auto">
             <PageHero
               session={session}
               participant={participant}
@@ -134,8 +134,8 @@ export default function MyBoardView({ session, participant }) {
   }
 
   return (
-    <main className="min-h-screen bg-white text-black px-6 pt-8 pb-16">
-      <div className="max-w-3xl mx-auto">
+    <main className="min-h-screen bg-white text-black px-4 md:px-8 lg:px-12 pt-8 pb-16">
+      <div className="max-w-6xl mx-auto">
         <PageHero
           session={session}
           participant={participant}
@@ -144,34 +144,44 @@ export default function MyBoardView({ session, participant }) {
         />
         <Tabs tabs={tabs} activeTab={activeTab} onChange={setActiveTab} />
 
-        <SubheaderForState session={session} stats={stats} synthesis={synthesis} />
-
-        <div className="mt-2">
-          {activeTab === "my" && (
-            <div role="tabpanel" id="panel-my" aria-labelledby="tab-my">
-              <MyBoardContent canvas={canvas} />
-            </div>
-          )}
-          {activeTab === "team" && synthesis && (
-            <div role="tabpanel" id="panel-team" aria-labelledby="tab-team">
-              <TeamBoardContent synthesis={synthesis} />
-            </div>
-          )}
-          {activeTab === "ranked" && rankedResults && (
-            <div
-              role="tabpanel"
-              id="panel-ranked"
-              aria-labelledby="tab-ranked"
-              className="mt-4"
-            >
-              <RankedIdeasView
-                ranked={rankedResults.ranked}
-                participantCount={rankedResults.participantCount}
-                votesPerParticipant={rankedResults.votesPerParticipant}
-                variant="compact"
+        {/* Desktop: 12-col grid with sticky aside (1/3) + main content (2/3).
+            Mobile: stacks vertically; aside content lives above content. */}
+        <div className="grid grid-cols-1 lg:grid-cols-12 lg:gap-12">
+          <aside className="lg:col-span-4 mb-6 lg:mb-0">
+            <div className="lg:sticky lg:top-8">
+              <SubheaderForState
+                session={session}
+                stats={stats}
+                synthesis={synthesis}
               />
             </div>
-          )}
+          </aside>
+          <div className="lg:col-span-8">
+            {activeTab === "my" && (
+              <div role="tabpanel" id="panel-my" aria-labelledby="tab-my">
+                <MyBoardContent canvas={canvas} />
+              </div>
+            )}
+            {activeTab === "team" && synthesis && (
+              <div role="tabpanel" id="panel-team" aria-labelledby="tab-team">
+                <TeamBoardContent synthesis={synthesis} />
+              </div>
+            )}
+            {activeTab === "ranked" && rankedResults && (
+              <div
+                role="tabpanel"
+                id="panel-ranked"
+                aria-labelledby="tab-ranked"
+              >
+                <RankedIdeasView
+                  ranked={rankedResults.ranked}
+                  participantCount={rankedResults.participantCount}
+                  votesPerParticipant={rankedResults.votesPerParticipant}
+                  variant="compact"
+                />
+              </div>
+            )}
+          </div>
         </div>
 
         <Footer
@@ -295,7 +305,7 @@ function SubheaderForState({ session, stats, synthesis }) {
   if (session.votingStatus === "open") {
     return (
       <div
-        className="mb-10 p-6 flex items-center gap-6"
+        className="p-6 flex items-center gap-6"
         style={{ background: C.starredBg }}
       >
         <div
@@ -335,7 +345,7 @@ function SubheaderForState({ session, stats, synthesis }) {
   if (session.votingStatus === "closed_with_results") {
     return (
       <div
-        className="mb-10 px-6 py-5"
+        className="px-6 py-5"
         style={{ background: C.black, color: C.white }}
       >
         <div className="kicker-row" style={{ marginBottom: 6 }}>
@@ -365,7 +375,7 @@ function SubheaderForState({ session, stats, synthesis }) {
   if (synthesis) {
     return (
       <div
-        className="mb-10 px-6 py-4"
+        className="px-6 py-4"
         style={{ background: "rgba(0,163,224,0.06)" }}
       >
         <div className="kicker-row" style={{ marginBottom: 6 }}>
@@ -391,7 +401,7 @@ function SubheaderForState({ session, stats, synthesis }) {
   // Default: just locked, no synthesis yet → soft confirmation
   return (
     <div
-      className="mb-10 px-6 py-5"
+      className="px-6 py-5"
       style={{ background: C.surface }}
     >
       <div className="kicker-row" style={{ marginBottom: 8 }}>

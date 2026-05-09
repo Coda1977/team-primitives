@@ -110,7 +110,7 @@ function CanvasInner({ session, participant }) {
         <div className="canvas-inner">
           {/* Editorial header — matches Intake/AdminBoard broadcast pattern */}
           <header
-            className="max-w-3xl mx-auto mb-10 pb-4 flex items-center justify-between border-b"
+            className="max-w-6xl mx-auto mb-10 pb-4 flex items-center justify-between border-b"
             style={{ borderColor: C.lightGray }}
           >
             <div className="flex items-center gap-3 text-xs">
@@ -139,7 +139,7 @@ function CanvasInner({ session, participant }) {
             />
           </header>
 
-          <div className="max-w-3xl mx-auto mb-12 animate-fade-in">
+          <div className="max-w-6xl mx-auto mb-12 animate-fade-in">
             <div className="kicker-row">
               <span className="kicker-tick" aria-hidden="true" />
               <span className="kicker-label">Your canvas</span>
@@ -175,7 +175,10 @@ function CanvasInner({ session, participant }) {
             </div>
           </div>
 
-          <div className="card-stack">
+          {/* Single column on mobile/tablet (so each category gets full width
+              for editing); 2-column grid at lg+ so 6 categories fit in 3 rows
+              on a desktop instead of stacking 6 deep. */}
+          <div className="max-w-6xl mx-auto grid grid-cols-1 lg:grid-cols-2 gap-6 lg:gap-8 items-start">
             {CATEGORIES.map((c, i) => (
               <CategorySection
                 key={c.id}
@@ -189,7 +192,7 @@ function CanvasInner({ session, participant }) {
           </div>
 
           {error && (
-            <div className="mt-6 max-w-3xl mx-auto">
+            <div className="mt-6 max-w-6xl mx-auto">
               <StatusBlock variant="alert" kicker="Couldn't submit">
                 {error}
               </StatusBlock>
@@ -205,7 +208,7 @@ function CanvasInner({ session, participant }) {
             borderTop: `1px solid ${C.lightGray}`,
           }}
         >
-          <div className="max-w-3xl mx-auto py-4 flex items-center justify-between gap-4 flex-wrap">
+          <div className="max-w-6xl mx-auto py-4 flex items-center justify-between gap-4 flex-wrap">
             <div
               className="flex items-center gap-2 text-sm"
               style={{
