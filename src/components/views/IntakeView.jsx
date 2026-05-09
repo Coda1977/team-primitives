@@ -93,7 +93,7 @@ export default function IntakeView({ session, participant, onSubmitted }) {
           borderColor: C.lightGray,
         }}
       >
-        <div className="max-w-5xl mx-auto px-4 md:px-8 py-3 flex items-center justify-between">
+        <div className="max-w-6xl mx-auto px-4 md:px-8 py-3 flex items-center justify-between">
           <div className="flex items-center gap-3 text-xs">
             <span
               className="inline-block w-1 h-4"
@@ -120,7 +120,7 @@ export default function IntakeView({ session, participant, onSubmitted }) {
         </div>
       </header>
 
-      <div className="max-w-5xl mx-auto px-4 md:px-8 pt-12 md:pt-16 pb-32">
+      <div className="max-w-6xl mx-auto px-4 md:px-8 pt-12 md:pt-16 pb-32">
         {/* Editorial title block */}
         <div
           className="mb-16"
@@ -258,7 +258,7 @@ export default function IntakeView({ session, participant, onSubmitted }) {
           borderColor: C.lightGray,
         }}
       >
-        <div className="max-w-5xl mx-auto px-4 md:px-8 py-4 flex items-center justify-between gap-4">
+        <div className="max-w-6xl mx-auto px-4 md:px-8 py-4 flex items-center justify-between gap-4">
           <p
             className="text-xs uppercase tracking-[0.2em] font-semibold"
             style={{ color: allFilled ? C.darkGray : C.gray500 }}

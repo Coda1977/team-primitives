@@ -117,7 +117,7 @@ export default function MyBoardView({ session, participant }) {
     return (
       <>
         <main className="min-h-screen bg-white text-black px-4 md:px-8 lg:px-12 pt-8">
-          <div className="max-w-6xl mx-auto">
+          <div className="max-w-7xl mx-auto">
             <PageHero
               session={session}
               participant={participant}
@@ -135,7 +135,7 @@ export default function MyBoardView({ session, participant }) {
 
   return (
     <main className="min-h-screen bg-white text-black px-4 md:px-8 lg:px-12 pt-8 pb-16">
-      <div className="max-w-6xl mx-auto">
+      <div className="max-w-7xl mx-auto">
         <PageHero
           session={session}
           participant={participant}
@@ -144,10 +144,12 @@ export default function MyBoardView({ session, participant }) {
         />
         <Tabs tabs={tabs} activeTab={activeTab} onChange={setActiveTab} />
 
-        {/* Desktop: 12-col grid with sticky aside (1/3) + main content (2/3).
-            Mobile: stacks vertically; aside content lives above content. */}
-        <div className="grid grid-cols-1 lg:grid-cols-12 lg:gap-12">
-          <aside className="lg:col-span-4 mb-6 lg:mb-0">
+        {/* Desktop: 12-col grid with sticky aside (3/12) + main (9/12).
+            Aside trimmed from 4/12 -> 3/12 so its content (compact state
+            chip) doesn't have a giant empty column under it.
+            Mobile: stacks vertically. */}
+        <div className="grid grid-cols-1 lg:grid-cols-12 lg:gap-10">
+          <aside className="lg:col-span-3 mb-6 lg:mb-0">
             <div className="lg:sticky lg:top-8">
               <SubheaderForState
                 session={session}
@@ -156,7 +158,7 @@ export default function MyBoardView({ session, participant }) {
               />
             </div>
           </aside>
-          <div className="lg:col-span-8">
+          <div className="lg:col-span-9">
             {activeTab === "my" && (
               <div role="tabpanel" id="panel-my" aria-labelledby="tab-my">
                 <MyBoardContent canvas={canvas} />
@@ -301,42 +303,38 @@ function Tabs({ tabs, activeTab, onChange }) {
 // SubheaderForState — each phase has its own architecture
 // ---------------------------------------------------------------
 function SubheaderForState({ session, stats, synthesis }) {
-  // Voting OPEN → red kicker + large numeral (mirrors PresentView's banner)
+  // Voting OPEN → red kicker + large numeral. Stacked vertically so it
+  // reads well in the narrow desktop sidebar; on wider sidebars the row
+  // would also work but the vertical stack is more legible.
   if (session.votingStatus === "open") {
     return (
-      <div
-        className="p-6 flex items-center gap-6"
-        style={{ background: C.starredBg }}
-      >
+      <div className="p-5" style={{ background: C.starredBg }}>
+        <div className="kicker-row" style={{ marginBottom: 12 }}>
+          <span className="kicker-tick kicker-tick--sm" aria-hidden="true" />
+          <span
+            className="kicker-label kicker-label--sm"
+            style={{ color: C.red }}
+          >
+            Voting is open
+          </span>
+        </div>
         <div
-          className="font-bold leading-none tabular-nums flex-shrink-0"
+          className="font-bold leading-none tabular-nums mb-3"
           style={{
-            fontSize: "clamp(2.5rem, 5vw, 3.75rem)",
+            fontSize: "3.5rem",
             color: C.red,
             letterSpacing: "-0.04em",
           }}
         >
           {session.votesPerParticipant ?? 3}
         </div>
-        <div className="flex-1">
-          <div className="kicker-row" style={{ marginBottom: 6 }}>
-            <span className="kicker-tick kicker-tick--sm" aria-hidden="true" />
-            <span
-              className="kicker-label kicker-label--sm"
-              style={{ color: C.red }}
-            >
-              Voting is open
-            </span>
-          </div>
-          <p className="text-sm" style={{ color: C.darkGray, lineHeight: 1.55 }}>
-            You have{" "}
-            <strong>
-              {session.votesPerParticipant ?? 3}{" "}
-              {(session.votesPerParticipant ?? 3) === 1 ? "vote" : "votes"}
-            </strong>
-            . Open the "Vote" tab to choose your team's priorities.
-          </p>
-        </div>
+        <p
+          className="text-xs"
+          style={{ color: C.darkGray, lineHeight: 1.55 }}
+        >
+          {(session.votesPerParticipant ?? 3) === 1 ? "vote" : "votes"} per
+          person. Open the "Vote" tab to choose the team's priorities.
+        </p>
       </div>
     );
   }
@@ -344,11 +342,8 @@ function SubheaderForState({ session, stats, synthesis }) {
   // Voting CLOSED → black celebratory band
   if (session.votingStatus === "closed_with_results") {
     return (
-      <div
-        className="px-6 py-5"
-        style={{ background: C.black, color: C.white }}
-      >
-        <div className="kicker-row" style={{ marginBottom: 6 }}>
+      <div className="p-5" style={{ background: C.black, color: C.white }}>
+        <div className="kicker-row" style={{ marginBottom: 8 }}>
           <span
             className="inline-block w-1 h-4"
             aria-hidden="true"
@@ -362,7 +357,7 @@ function SubheaderForState({ session, stats, synthesis }) {
           </span>
         </div>
         <p
-          className="text-sm"
+          className="text-xs"
           style={{ color: "rgba(255,255,255,0.8)", lineHeight: 1.55 }}
         >
           See the team's top ideas in the "Final results" tab.
@@ -374,11 +369,8 @@ function SubheaderForState({ session, stats, synthesis }) {
   // Synthesis ready (pre-voting) → soft blue
   if (synthesis) {
     return (
-      <div
-        className="px-6 py-4"
-        style={{ background: "rgba(0,163,224,0.06)" }}
-      >
-        <div className="kicker-row" style={{ marginBottom: 6 }}>
+      <div className="p-5" style={{ background: "rgba(0,163,224,0.06)" }}>
+        <div className="kicker-row" style={{ marginBottom: 8 }}>
           <span
             className="inline-block w-1 h-4"
             aria-hidden="true"
@@ -391,31 +383,32 @@ function SubheaderForState({ session, stats, synthesis }) {
             Team board ready
           </span>
         </div>
-        <p className="text-sm" style={{ color: C.darkGray, lineHeight: 1.55 }}>
+        <p className="text-xs" style={{ color: C.darkGray, lineHeight: 1.55 }}>
           Open the "Team board" tab to see how everyone's ideas come together.
         </p>
       </div>
     );
   }
 
-  // Default: just locked, no synthesis yet → soft confirmation
+  // Default: just locked, no synthesis yet → soft confirmation. In the
+  // sidebar this reads as a quiet status pill rather than a hero block.
   return (
-    <div
-      className="px-6 py-5"
-      style={{ background: C.surface }}
-    >
+    <div className="p-5" style={{ background: C.surface }}>
       <div className="kicker-row" style={{ marginBottom: 8 }}>
         <span className="kicker-tick kicker-tick--sm" aria-hidden="true" />
-        <span className="kicker-label kicker-label--sm">
-          Locked in
-        </span>
+        <span className="kicker-label kicker-label--sm">Locked in</span>
       </div>
-      <p className="text-sm" style={{ color: C.darkGray, lineHeight: 1.55 }}>
-        Your contribution is in. You starred{" "}
-        <strong style={{ color: C.black }}>{stats.starred}</strong> of{" "}
-        <strong style={{ color: C.black }}>{stats.total}</strong> ideas. The
-        team board, voting, and final results will appear here as your admin
-        runs the next phases.
+      <p
+        className="text-xs"
+        style={{ color: C.darkGray, lineHeight: 1.55 }}
+      >
+        Your contribution is in.{" "}
+        <span className="tabular-nums">
+          <strong style={{ color: C.black }}>{stats.starred}</strong> of{" "}
+          <strong style={{ color: C.black }}>{stats.total}</strong>
+        </span>{" "}
+        ideas starred. The team board, voting, and final results will appear
+        here as your admin runs the next phases.
       </p>
     </div>
   );

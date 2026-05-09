@@ -136,7 +136,7 @@ export default function VoteView({ session, participant, embedded = false }) {
         <span>{allUsed ? "All votes in ✓" : "Votes used"}</span>
       </div>
 
-      <div className="max-w-5xl mx-auto px-4 md:px-8 pt-12 pb-16">
+      <div className="max-w-6xl mx-auto px-4 md:px-8 pt-12 pb-16">
         {!embedded && (
           <div className="mb-12">
             <div className="kicker-row">
