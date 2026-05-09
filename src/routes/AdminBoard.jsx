@@ -116,7 +116,7 @@ function AdminInner({ session, adminKey }) {
   return (
     <main className="min-h-screen bg-white text-black">
       <style>{FADE_KEYFRAMES}</style>
-      <div className="max-w-[1400px] mx-auto px-8 lg:px-12 py-12">
+      <div className="max-w-[1400px] mx-auto px-4 md:px-8 lg:px-12 py-10 md:py-12">
         {/* Editorial header */}
         <header
           className="mb-12"
@@ -127,31 +127,29 @@ function AdminInner({ session, adminKey }) {
         >
           <div className="flex items-end justify-between gap-6 flex-wrap">
             <div>
-              <div className="flex items-center gap-3 mb-4">
-                <span
-                  className="inline-block w-1 h-4"
-                  style={{ background: C.red }}
-                />
-                <span className="text-[11px] font-bold uppercase tracking-[0.32em] text-neutral-500">
-                  Workshop control
-                </span>
+              <div className="kicker-row">
+                <span className="kicker-tick" aria-hidden="true" />
+                <span className="kicker-label">Workshop control</span>
               </div>
-              <h1
-                className="font-bold leading-[1] tracking-tight"
-                style={{
-                  fontSize: "clamp(2rem, 3.5vw, 2.75rem)",
-                  letterSpacing: "-0.025em",
-                }}
+              <h1 className="font-bold leading-[1] mb-2 display-md">
+                {session.functionName}
+              </h1>
+              <p
+                className="text-sm uppercase tracking-[0.22em] font-semibold"
+                style={{ color: C.gray500 }}
               >
                 Admin board
-              </h1>
+              </p>
             </div>
             <a
               href={buildPresentUrl(window.location.origin, session.code, adminKey)}
               target="_blank"
               rel="noreferrer"
-              className="inline-flex items-center gap-2 px-4 py-2.5 text-[10px] font-semibold uppercase tracking-[0.22em] border hover:bg-black hover:text-white transition-colors"
-              style={{ borderColor: C.black }}
+              className="inline-flex items-center gap-2 px-4 py-2.5 text-[10px] font-semibold uppercase tracking-[0.22em] border hover:bg-black hover:text-white touch-min"
+              style={{
+                borderColor: C.black,
+                transition: "background 0.15s ease, color 0.15s ease",
+              }}
               title="Open the projector-friendly view in a new tab"
             >
               <Tv size={14} />

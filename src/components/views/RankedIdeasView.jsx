@@ -398,13 +398,22 @@ function StageRankedRow({ idea, delay }) {
 function CompactVariant({ winners, otherTop, rest, hasTies, participantCount, votesPerParticipant }) {
   return (
     <div className="space-y-10">
-      {participantCount && (
-        <p className="text-sm text-neutral-700 leading-relaxed">
-          Ranked by votes from all <strong>{participantCount}</strong>{" "}
-          {participantCount === 1 ? "teammate" : "teammates"} ({votesPerParticipant}{" "}
-          {votesPerParticipant === 1 ? "vote" : "votes"} each).
-        </p>
-      )}
+      <div>
+        <div className="kicker-row" style={{ marginBottom: 12 }}>
+          <span className="kicker-tick kicker-tick--sm" aria-hidden="true" />
+          <span className="kicker-label kicker-label--sm">Final ranking</span>
+        </div>
+        <h2 className="font-bold leading-[1.05] mb-3 display-sm">
+          The team's priorities
+        </h2>
+        {participantCount && (
+          <p className="text-sm" style={{ color: C.darkGray, lineHeight: 1.55 }}>
+            Ranked by votes from all <strong>{participantCount}</strong>{" "}
+            {participantCount === 1 ? "teammate" : "teammates"} ({votesPerParticipant}{" "}
+            {votesPerParticipant === 1 ? "vote" : "votes"} each).
+          </p>
+        )}
+      </div>
 
       {winners.length > 0 && (
         <section>
@@ -446,9 +455,15 @@ function CompactVariant({ winners, otherTop, rest, hasTies, participantCount, vo
       )}
 
       {hasTies && (
-        <p className="text-xs italic text-neutral-500">
-          Ties broken by who first contributed the idea.
-        </p>
+        <div className="pt-4 border-t" style={{ borderColor: C.lightGray }}>
+          <div className="kicker-row" style={{ marginBottom: 6 }}>
+            <span className="kicker-tick kicker-tick--sm" aria-hidden="true" />
+            <span className="kicker-label kicker-label--sm">Tie-break note</span>
+          </div>
+          <p className="text-xs" style={{ color: C.darkGray, lineHeight: 1.55 }}>
+            Ties broken by who first contributed the idea.
+          </p>
+        </div>
       )}
     </div>
   );
@@ -509,8 +524,12 @@ function CompactRow({ idea, emphasis }) {
   return (
     <div className="grid grid-cols-12 gap-3 items-baseline py-4">
       <span
-        className="col-span-2 font-bold tabular-nums text-neutral-500"
-        style={{ fontSize: isRunnerUp ? "1.5rem" : "1rem", letterSpacing: "-0.02em" }}
+        className="col-span-2 font-bold tabular-nums"
+        style={{
+          fontSize: isRunnerUp ? "2rem" : "1.25rem",
+          letterSpacing: "-0.04em",
+          color: isRunnerUp ? C.darkGray : C.gray500,
+        }}
       >
         {idea.rank}
       </span>

@@ -3,12 +3,14 @@ import { Star, Pencil, Trash2 } from "lucide-react";
 import { C } from "../../config/constants";
 import { useToast } from "../../context/useToast";
 
+// Editorial flat-rectangle idea card. Replaces the legacy `.action-card`
+// rounded surface. Starred ideas get a 2px red top accent (matches the
+// PresentView StickyNote and MyBoardView idea pattern).
 export default function IdeaCard({ idea, categoryId, dispatch, isNew }) {
   const { showToast } = useToast();
   const [editing, setEditing] = useState(false);
   const [text, setText] = useState(idea.text);
   const [removing, setRemoving] = useState(false);
-  const [blooming, setBlooming] = useState(false);
   const [popping, setPopping] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const ref = useRef(null);
@@ -33,24 +35,50 @@ export default function IdeaCard({ idea, categoryId, dispatch, isNew }) {
     setTimeout(() => dispatch({ type: "DELETE_PRIMITIVE", categoryId, ideaId: idea.id }), 280);
   };
   const handleStar = () => {
-    setBlooming(true);
     setPopping(true);
     dispatch({ type: "TOGGLE_PRIMITIVE_STAR", categoryId, ideaId: idea.id });
     if (!idea.starred) {
-      showToast("Added to your priorities");
+      showToast({ message: "Added to your priorities", variant: "success" });
     }
-    setTimeout(() => setBlooming(false), 500);
     setTimeout(() => setPopping(false), 500);
   };
 
   const isStarred = idea.starred;
 
   return (
-    <div className={`action-card ${isStarred ? "action-starred" : ""} ${removing ? "action-removing" : ""} ${blooming ? "action-blooming" : ""} ${isNew ? "action-entering" : ""}`}>
-      <button onClick={handleStar} className={`star-btn ${popping ? "star-popping" : ""}`} aria-label={isStarred ? "Unstar" : "Star"}>
-        <Star size={18} fill={isStarred ? C.accentGlow : "none"} color={isStarred ? C.accentGlow : C.muted} />
+    <div
+      className={`flex items-start gap-3 p-4 ${isNew ? "animate-fade-in" : ""} ${removing ? "action-removing" : ""}`}
+      style={{
+        background: isStarred ? C.starredBg : C.surface,
+        boxShadow: isStarred
+          ? `inset 0 2px 0 0 ${C.red}`
+          : `inset 0 1px 0 0 ${C.lightGray}`,
+        transition: "background 0.25s ease",
+      }}
+    >
+      <button
+        type="button"
+        onClick={handleStar}
+        aria-label={isStarred ? "Unstar this idea" : "Star this idea"}
+        aria-pressed={isStarred}
+        className="touch-min flex items-center justify-center flex-shrink-0"
+        style={{
+          background: "transparent",
+          border: "none",
+          cursor: "pointer",
+          padding: 8,
+          marginLeft: -8,
+          transform: popping ? "scale(1.15)" : "scale(1)",
+          transition: "transform 0.2s ease",
+        }}
+      >
+        <Star
+          size={18}
+          fill={isStarred ? C.red : "none"}
+          color={isStarred ? C.red : C.darkGray}
+        />
       </button>
-      <div className="action-text-area">
+      <div className="flex-1 min-w-0">
         {editing ? (
           <textarea
             ref={ref}
@@ -62,24 +90,85 @@ export default function IdeaCard({ idea, categoryId, dispatch, isNew }) {
             }}
             onBlur={save}
             rows={2}
-            className="action-edit-input"
+            className="w-full text-sm leading-relaxed p-2 resize-none"
+            style={{
+              border: `1.5px solid ${C.red}`,
+              outline: "none",
+              background: C.white,
+              color: C.black,
+              boxShadow: "0 0 0 3px rgba(227,6,19,0.08)",
+            }}
           />
         ) : (
-          <p className="action-text">{idea.text}</p>
+          <p className="text-sm leading-relaxed" style={{ color: C.black }}>
+            {idea.text}
+          </p>
         )}
       </div>
       {!editing && (
-        <div className="action-inline-actions">
+        <div className="flex gap-1 flex-shrink-0">
           {confirmDelete ? (
-            <button onClick={handleDelete} className="action-confirm-delete" aria-label="Confirm delete">
-              <Trash2 size={13} /> Delete?
+            <button
+              type="button"
+              onClick={handleDelete}
+              aria-label="Confirm delete"
+              className="inline-flex items-center gap-1 px-3 text-xs font-semibold uppercase tracking-wider touch-min"
+              style={{
+                background: C.redLight,
+                border: `1px solid ${C.red}`,
+                color: "#c53030",
+                cursor: "pointer",
+              }}
+            >
+              <Trash2 size={13} />
+              Delete?
             </button>
           ) : (
             <>
-              <button onClick={() => setEditing(true)} className="action-inline-btn" aria-label="Edit">
+              <button
+                type="button"
+                onClick={() => setEditing(true)}
+                aria-label="Edit idea"
+                className="touch-min flex items-center justify-center"
+                style={{
+                  background: "transparent",
+                  border: "none",
+                  color: C.darkGray,
+                  cursor: "pointer",
+                  transition: "color 0.15s ease, background 0.15s ease",
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.background = C.surface;
+                  e.currentTarget.style.color = C.black;
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.background = "transparent";
+                  e.currentTarget.style.color = C.darkGray;
+                }}
+              >
                 <Pencil size={16} />
               </button>
-              <button onClick={handleDelete} className="action-inline-btn action-inline-delete" aria-label="Delete">
+              <button
+                type="button"
+                onClick={handleDelete}
+                aria-label="Delete idea"
+                className="touch-min flex items-center justify-center"
+                style={{
+                  background: "transparent",
+                  border: "none",
+                  color: C.darkGray,
+                  cursor: "pointer",
+                  transition: "color 0.15s ease, background 0.15s ease",
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.background = C.redLight;
+                  e.currentTarget.style.color = "#c53030";
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.background = "transparent";
+                  e.currentTarget.style.color = C.darkGray;
+                }}
+              >
                 <Trash2 size={16} />
               </button>
             </>

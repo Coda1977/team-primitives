@@ -272,8 +272,9 @@ export default function IntakeView({ session, participant, onSubmitted }) {
             disabled={submitting || !allFilled}
             className="px-6 py-3 text-xs font-semibold uppercase tracking-[0.18em] disabled:opacity-50 disabled:cursor-not-allowed"
             style={{
-              background: allFilled ? C.red : C.gray300,
+              background: allFilled ? C.red : C.gray500,
               color: C.white,
+              minHeight: "var(--touch-min)",
             }}
           >
             {!allFilled

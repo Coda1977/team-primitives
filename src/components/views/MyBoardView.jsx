@@ -1,8 +1,12 @@
-// Locked-phase participant view. Shows different tabs based on session state:
-//   - Pre-synthesis: just "My board"
-//   - Synthesis ready, voting idle: My board + Team board
-//   - Voting open: My board + Team board + Vote
-//   - Voting closed: My board + Team board + Final results
+// Locked-phase participant view — full editorial broadcast pattern.
+//
+// Architecture:
+//   1. Editorial header: kicker tick + "Workshop · ${functionName}" label +
+//      display title that changes per active tab + participant byline + hairline.
+//   2. Tab nav at primary-nav scale (text-sm, generous gap), single hairline.
+//   3. Per-state subheader: each of the 4 phases gets its own architecture
+//      (not 4 near-identical tinted banners).
+//   4. Tab content with no extra chrome competing with the page header.
 
 import { useMemo, useState, useEffect } from "react";
 import { Star, Download } from "lucide-react";
@@ -15,9 +19,17 @@ import { exportParticipantDocx } from "../../utils/export";
 import VoteView from "./VoteView";
 import RankedIdeasView from "./RankedIdeasView";
 import ConfirmModal from "../shared/ConfirmModal";
-import StatusBlock from "../shared/StatusBlock";
 import { useToast } from "../../context/useToast";
 import { useOnlineStatus } from "../../hooks/useOnlineStatus";
+
+// Per-tab page identity. The display title changes with the active tab so
+// the page reads as "you are here" without relying solely on the strip.
+const TAB_TITLES = {
+  my:     { kicker: "Your contributions", title: "My board" },
+  team:   { kicker: "Team's deduplicated ideas", title: "Team board" },
+  vote:   { kicker: "Cast your votes", title: "Vote" },
+  ranked: { kicker: "Final ranked priorities", title: "Final results" },
+};
 
 export default function MyBoardView({ session, participant }) {
   const canvas = useQuery(api.canvas.getMyCanvas, {
@@ -31,15 +43,12 @@ export default function MyBoardView({ session, participant }) {
     sessionId: session._id,
   });
 
-  // Build ordered list of available tabs based on session state
   const tabs = useMemo(() => {
     const t = [{ id: "my", label: "My board" }];
     if (synthesis && synthesis.clusters.length > 0) {
       t.push({ id: "team", label: "Team board" });
     }
-    if (session.votingStatus === "open") {
-      t.push({ id: "vote", label: "Vote" });
-    }
+    if (session.votingStatus === "open") t.push({ id: "vote", label: "Vote" });
     if (session.votingStatus === "closed_with_results") {
       t.push({ id: "ranked", label: "Final results" });
     }
@@ -80,21 +89,15 @@ export default function MyBoardView({ session, participant }) {
   }, [canvas]);
 
   if (canvas === undefined) {
-    return (
-      <main className="min-h-screen bg-white text-black px-6 py-12 flex items-center justify-center">
-        <p className="text-sm text-neutral-500">Loading your board…</p>
-      </main>
-    );
+    return <FullScreenLoading>Loading your board…</FullScreenLoading>;
   }
 
   const onReset = () => setResetConfirmOpen(true);
-
   const onResetConfirm = () => {
     clearParticipantId(session.code);
     window.location.href = `/s/${session.code}/join`;
   };
 
-  // Vote tab is a full screen — render directly (it has its own sticky header)
   const resetModal = (
     <ConfirmModal
       open={resetConfirmOpen}
@@ -107,246 +110,359 @@ export default function MyBoardView({ session, participant }) {
     />
   );
 
+  // Vote tab is its own full screen — VoteView's own header takes over,
+  // and we drop the page-level Hero (otherwise the user sees two heroes
+  // stacked on top of each other).
   if (activeTab === "vote") {
     return (
       <>
-        <TabBar
-          tabs={tabs}
-          activeTab={activeTab}
-          onChange={setActiveTab}
-          session={session}
-          participant={participant}
-          stats={stats}
-        />
-        <VoteView session={session} participant={participant} />
+        <main className="min-h-screen bg-white text-black px-6 pt-8">
+          <div className="max-w-3xl mx-auto">
+            <PageHero
+              session={session}
+              participant={participant}
+              stats={stats}
+              activeTab={activeTab}
+            />
+            <Tabs tabs={tabs} activeTab={activeTab} onChange={setActiveTab} />
+          </div>
+        </main>
+        <VoteView session={session} participant={participant} embedded />
         {resetModal}
       </>
     );
   }
 
   return (
-    <main className="min-h-screen bg-white text-black px-6 py-6">
-      <TabBar
-        tabs={tabs}
-        activeTab={activeTab}
-        onChange={setActiveTab}
-        session={session}
-        participant={participant}
-        stats={stats}
-      />
+    <main className="min-h-screen bg-white text-black px-6 pt-8 pb-16">
+      <div className="max-w-3xl mx-auto">
+        <PageHero
+          session={session}
+          participant={participant}
+          stats={stats}
+          activeTab={activeTab}
+        />
+        <Tabs tabs={tabs} activeTab={activeTab} onChange={setActiveTab} />
 
-      <div className="max-w-3xl mx-auto pt-2">
         <SubheaderForState session={session} stats={stats} synthesis={synthesis} />
 
-        {activeTab === "my" && (
-          <div role="tabpanel" id="panel-my" aria-labelledby="tab-my">
-            <MyBoardContent canvas={canvas} />
-          </div>
-        )}
-
-        {activeTab === "team" && synthesis && (
-          <div role="tabpanel" id="panel-team" aria-labelledby="tab-team">
-            <TeamBoardContent synthesis={synthesis} />
-          </div>
-        )}
-
-        {activeTab === "ranked" && rankedResults && (
-          <div
-            role="tabpanel"
-            id="panel-ranked"
-            aria-labelledby="tab-ranked"
-            className="mt-6"
-          >
-            <RankedIdeasView
-              ranked={rankedResults.ranked}
-              participantCount={rankedResults.participantCount}
-              votesPerParticipant={rankedResults.votesPerParticipant}
-              variant="compact"
-            />
-          </div>
-        )}
-
-        <div
-          className="mt-12 pt-6 border-t flex items-center justify-between flex-wrap gap-3"
-          style={{ borderColor: C.lightGray }}
-        >
-          <button
-            onClick={async () => {
-              try {
-                await exportParticipantDocx({ session, participant, canvas });
-              } catch (err) {
-                console.error("Export failed", err);
-                showToast(err?.message ?? "Couldn't generate the Word file.");
-              }
-            }}
-            className="px-5 py-3 text-sm font-semibold uppercase tracking-[0.18em] border flex items-center gap-2 hover:bg-black hover:text-white transition-colors"
-            style={{ borderColor: C.black }}
-          >
-            <Download size={14} /> Download my ideas (Word)
-          </button>
-          <button
-            onClick={onReset}
-            className="text-xs text-neutral-500 hover:text-black underline"
-          >
-            Not you? Reset and re-enter your name
-          </button>
+        <div className="mt-2">
+          {activeTab === "my" && (
+            <div role="tabpanel" id="panel-my" aria-labelledby="tab-my">
+              <MyBoardContent canvas={canvas} />
+            </div>
+          )}
+          {activeTab === "team" && synthesis && (
+            <div role="tabpanel" id="panel-team" aria-labelledby="tab-team">
+              <TeamBoardContent synthesis={synthesis} />
+            </div>
+          )}
+          {activeTab === "ranked" && rankedResults && (
+            <div
+              role="tabpanel"
+              id="panel-ranked"
+              aria-labelledby="tab-ranked"
+              className="mt-4"
+            >
+              <RankedIdeasView
+                ranked={rankedResults.ranked}
+                participantCount={rankedResults.participantCount}
+                votesPerParticipant={rankedResults.votesPerParticipant}
+                variant="compact"
+              />
+            </div>
+          )}
         </div>
+
+        <Footer
+          session={session}
+          participant={participant}
+          canvas={canvas}
+          onReset={onReset}
+          showToast={showToast}
+        />
       </div>
       {resetModal}
     </main>
   );
 }
 
-function TabBar({ tabs, activeTab, onChange, session, participant }) {
+// ---------------------------------------------------------------
+// PageHero — editorial broadcast header
+// ---------------------------------------------------------------
+function PageHero({ session, participant, stats, activeTab }) {
   const online = useOnlineStatus();
+  const tabMeta = TAB_TITLES[activeTab] ?? TAB_TITLES.my;
   return (
-    <div className="max-w-3xl mx-auto">
-      <header
-        className="flex items-center justify-between border-b pb-3 mb-6"
-        style={{ borderColor: C.lightGray }}
-      >
-        <div className="flex items-center gap-3 text-xs">
-          <span
-            className="inline-block w-1 h-4"
-            style={{ background: C.red }}
-          />
-          <span
-            className="uppercase tracking-[0.28em] font-bold"
-            style={{ color: C.darkGray }}
-          >
-            {session.functionName}
+    <header className="mb-6">
+      <div className="flex items-start justify-between gap-4 mb-5 flex-wrap">
+        <div className="kicker-row" style={{ marginBottom: 0 }}>
+          <span className="kicker-tick" aria-hidden="true" />
+          <span className="kicker-label kicker-label--sm">
+            {session.functionName} · Workshop
           </span>
-          <span style={{ color: C.lightGray }}>·</span>
-          <span style={{ color: C.darkGray }}>{participant.name}</span>
         </div>
         <span
-          className="inline-block w-1.5 h-1.5 rounded-full"
-          style={{
-            background: online ? C.electricBlue : C.gray500,
-            border: online ? "none" : `1px solid ${C.lightGray}`,
-          }}
+          className="inline-flex items-center gap-2 text-[10px] uppercase tracking-[0.22em] font-semibold"
+          style={{ color: online ? C.darkGray : C.warning }}
           aria-label={online ? "online" : "offline"}
           title={online ? "Online" : "Offline. Changes save when you reconnect."}
-        />
-      </header>
-      {tabs.length > 1 && (
-        <nav
-          role="tablist"
-          aria-label="Workshop sections"
-          className="flex gap-6 mb-8 border-b overflow-x-auto"
-          style={{ borderColor: C.lightGray }}
         >
-          {tabs.map((tab) => (
-            <button
-              key={tab.id}
-              id={`tab-${tab.id}`}
-              role="tab"
-              type="button"
-              aria-selected={activeTab === tab.id}
-              aria-controls={`panel-${tab.id}`}
-              tabIndex={activeTab === tab.id ? 0 : -1}
-              onClick={() => onChange(tab.id)}
-              className="py-3 text-[11px] font-bold uppercase tracking-[0.22em] whitespace-nowrap transition-colors"
-              style={{
-                color: activeTab === tab.id ? C.black : C.gray500,
-                borderBottom: `2px solid ${
-                  activeTab === tab.id ? C.red : "transparent"
-                }`,
-                marginBottom: -1,
-              }}
-            >
-              {tab.label}
-            </button>
-          ))}
-        </nav>
-      )}
-    </div>
+          <span
+            className="inline-block w-1.5 h-1.5 rounded-full"
+            style={{
+              background: online ? C.electricBlue : "transparent",
+              border: online ? "none" : `1px solid ${C.warning}`,
+            }}
+          />
+          {online ? "Online" : "Offline"}
+        </span>
+      </div>
+      <h1
+        className="font-bold leading-[1] mb-3 display-md"
+      >
+        {tabMeta.title}
+      </h1>
+      <p
+        className="text-sm"
+        style={{ color: C.darkGray, lineHeight: 1.5 }}
+      >
+        <span className="font-semibold" style={{ color: C.black }}>
+          {participant.name}
+        </span>
+        <span className="mx-2" style={{ color: C.lightGray }}>·</span>
+        <span className="tabular-nums">{stats.starred}</span> starred of{" "}
+        <span className="tabular-nums">{stats.total}</span> ideas
+      </p>
+      <hr
+        className="border-0 h-px mt-7"
+        style={{ background: C.lightGray }}
+      />
+    </header>
   );
 }
 
+// ---------------------------------------------------------------
+// Tabs — primary nav scale, single hairline rule
+// ---------------------------------------------------------------
+function Tabs({ tabs, activeTab, onChange }) {
+  if (tabs.length <= 1) return null;
+  return (
+    <nav
+      role="tablist"
+      aria-label="Workshop sections"
+      className="flex gap-8 mb-10 overflow-x-auto"
+    >
+      {tabs.map((tab) => {
+        const isActive = activeTab === tab.id;
+        return (
+          <button
+            key={tab.id}
+            id={`tab-${tab.id}`}
+            role="tab"
+            type="button"
+            aria-selected={isActive}
+            aria-controls={`panel-${tab.id}`}
+            tabIndex={isActive ? 0 : -1}
+            onClick={() => onChange(tab.id)}
+            className="text-sm font-semibold whitespace-nowrap touch-min"
+            style={{
+              padding: "10px 0",
+              color: isActive ? C.black : C.gray500,
+              borderBottom: `2px solid ${isActive ? C.red : "transparent"}`,
+              background: "transparent",
+              border: "none",
+              borderBottomWidth: 2,
+              borderBottomStyle: "solid",
+              borderBottomColor: isActive ? C.red : "transparent",
+              transition: "color 0.15s ease, border-color 0.15s ease",
+              cursor: "pointer",
+            }}
+          >
+            {tab.label}
+          </button>
+        );
+      })}
+    </nav>
+  );
+}
+
+// ---------------------------------------------------------------
+// SubheaderForState — each phase has its own architecture
+// ---------------------------------------------------------------
 function SubheaderForState({ session, stats, synthesis }) {
+  // Voting OPEN → red kicker + large numeral (mirrors PresentView's banner)
   if (session.votingStatus === "open") {
     return (
-      <StatusBlock variant="success" kicker="Voting open" className="mb-6">
-        You have <strong>{session.votesPerParticipant ?? 3}</strong> votes. Open
-        the "Vote" tab to choose your team's priorities.
-      </StatusBlock>
+      <div
+        className="mb-10 p-6 flex items-center gap-6"
+        style={{ background: C.starredBg }}
+      >
+        <div
+          className="font-bold leading-none tabular-nums flex-shrink-0"
+          style={{
+            fontSize: "clamp(2.5rem, 5vw, 3.75rem)",
+            color: C.red,
+            letterSpacing: "-0.04em",
+          }}
+        >
+          {session.votesPerParticipant ?? 3}
+        </div>
+        <div className="flex-1">
+          <div className="kicker-row" style={{ marginBottom: 6 }}>
+            <span className="kicker-tick kicker-tick--sm" aria-hidden="true" />
+            <span
+              className="kicker-label kicker-label--sm"
+              style={{ color: C.red }}
+            >
+              Voting is open
+            </span>
+          </div>
+          <p className="text-sm" style={{ color: C.darkGray, lineHeight: 1.55 }}>
+            You have{" "}
+            <strong>
+              {session.votesPerParticipant ?? 3}{" "}
+              {(session.votesPerParticipant ?? 3) === 1 ? "vote" : "votes"}
+            </strong>
+            . Open the "Vote" tab to choose your team's priorities.
+          </p>
+        </div>
+      </div>
     );
   }
+
+  // Voting CLOSED → black celebratory band
   if (session.votingStatus === "closed_with_results") {
     return (
-      <StatusBlock variant="info" kicker="Voting complete" className="mb-6">
-        See the team's top ideas in the "Final results" tab.
-      </StatusBlock>
+      <div
+        className="mb-10 px-6 py-5"
+        style={{ background: C.black, color: C.white }}
+      >
+        <div className="kicker-row" style={{ marginBottom: 6 }}>
+          <span
+            className="inline-block w-1 h-4"
+            aria-hidden="true"
+            style={{ background: C.red }}
+          />
+          <span
+            className="kicker-label kicker-label--sm"
+            style={{ color: C.white }}
+          >
+            Voting complete
+          </span>
+        </div>
+        <p
+          className="text-sm"
+          style={{ color: "rgba(255,255,255,0.8)", lineHeight: 1.55 }}
+        >
+          See the team's top ideas in the "Final results" tab.
+        </p>
+      </div>
     );
   }
+
+  // Synthesis ready (pre-voting) → soft blue
   if (synthesis) {
     return (
-      <StatusBlock variant="info" kicker="Team board ready" className="mb-6">
-        Open the "Team board" tab to see how everyone's ideas come together.
-      </StatusBlock>
+      <div
+        className="mb-10 px-6 py-4"
+        style={{ background: "rgba(0,163,224,0.06)" }}
+      >
+        <div className="kicker-row" style={{ marginBottom: 6 }}>
+          <span
+            className="inline-block w-1 h-4"
+            aria-hidden="true"
+            style={{ background: C.electricBlue }}
+          />
+          <span
+            className="kicker-label kicker-label--sm"
+            style={{ color: C.electricBlue }}
+          >
+            Team board ready
+          </span>
+        </div>
+        <p className="text-sm" style={{ color: C.darkGray, lineHeight: 1.55 }}>
+          Open the "Team board" tab to see how everyone's ideas come together.
+        </p>
+      </div>
     );
   }
+
+  // Default: just locked, no synthesis yet → soft confirmation
   return (
     <div
-      className="px-5 py-4 mb-6"
-      style={{ background: "rgba(0,163,224,0.06)" }}
+      className="mb-10 px-6 py-5"
+      style={{ background: C.surface }}
     >
-      <div className="flex items-center gap-3 mb-2">
-        <span
-          aria-hidden="true"
-          className="inline-block w-1 h-4"
-          style={{ background: C.electricBlue }}
-        />
-        <span
-          className="text-[10px] font-bold uppercase tracking-[0.28em]"
-          style={{ color: C.electricBlue }}
-        >
+      <div className="kicker-row" style={{ marginBottom: 8 }}>
+        <span className="kicker-tick kicker-tick--sm" aria-hidden="true" />
+        <span className="kicker-label kicker-label--sm">
           Locked in
         </span>
       </div>
-      <h1 className="text-xl font-bold tracking-tight">
-        Your contribution is in ✓
-      </h1>
-      <p className="text-sm mt-2" style={{ color: C.darkGray, lineHeight: 1.55 }}>
-        You starred <strong>{stats.starred}</strong> of <strong>{stats.total}</strong>{" "}
-        ideas. The team board, voting, and final results will appear here as
-        your admin runs the next phases.
+      <p className="text-sm" style={{ color: C.darkGray, lineHeight: 1.55 }}>
+        Your contribution is in. You starred{" "}
+        <strong style={{ color: C.black }}>{stats.starred}</strong> of{" "}
+        <strong style={{ color: C.black }}>{stats.total}</strong> ideas. The
+        team board, voting, and final results will appear here as your admin
+        runs the next phases.
       </p>
     </div>
   );
 }
 
+// ---------------------------------------------------------------
+// MyBoardContent — read-only personal recap
+// Cards use a thin top-accent in the category color, matching
+// PresentView's StickyNote pattern (system consistency).
+// ---------------------------------------------------------------
 function MyBoardContent({ canvas }) {
   return (
-    <div className="space-y-8">
+    <div className="space-y-12">
       {CATEGORIES.map((cat) => {
         const ideas = canvas[cat.id] ?? [];
         if (ideas.length === 0) return null;
         return (
           <section key={cat.id}>
-            <h2 className="text-lg font-bold tracking-tight mb-3 flex items-center gap-2">
+            <div className="flex items-baseline gap-3 mb-4 pb-3 border-b" style={{ borderColor: C.lightGray }}>
               <span
-                className="inline-block w-2 h-2 rounded-full"
+                className="inline-block w-2 h-2 rounded-full flex-shrink-0"
                 style={{ background: cat.color }}
               />
-              {cat.number}. {cat.title}
-            </h2>
-            <div className="space-y-2">
+              <h2
+                className="font-bold leading-tight"
+                style={{
+                  fontSize: "1.125rem",
+                  letterSpacing: "-0.01em",
+                }}
+              >
+                {cat.title}
+              </h2>
+              <span
+                className="ml-auto text-[10px] uppercase tracking-[0.22em] font-semibold tabular-nums"
+                style={{ color: C.darkGray }}
+              >
+                {ideas.length} {ideas.length === 1 ? "idea" : "ideas"}
+              </span>
+            </div>
+            <div className="space-y-3">
               {ideas.map((idea) => (
                 <div
                   key={idea._id}
-                  className="flex items-start gap-3 p-3 border"
+                  className="flex items-start gap-3 p-4"
                   style={{
-                    borderColor: idea.starred ? C.red : C.lightGray,
                     background: idea.starred ? C.starredBg : C.surface,
+                    boxShadow: idea.starred
+                      ? `inset 0 2px 0 0 ${C.red}`
+                      : `inset 0 1px 0 0 ${cat.color}`,
                   }}
                 >
                   <Star
-                    size={18}
+                    size={16}
                     className="flex-shrink-0 mt-0.5"
                     fill={idea.starred ? C.red : "none"}
-                    color={idea.starred ? C.red : C.gray300}
+                    color={idea.starred ? C.red : C.lightGray}
+                    aria-hidden="true"
                   />
                   <p className="text-sm leading-relaxed flex-1">{idea.text}</p>
                 </div>
@@ -359,6 +475,9 @@ function MyBoardContent({ canvas }) {
   );
 }
 
+// ---------------------------------------------------------------
+// TeamBoardContent — synthesized clusters
+// ---------------------------------------------------------------
 function TeamBoardContent({ synthesis }) {
   const ideasByCategory = useMemo(() => {
     const grouped = {};
@@ -377,56 +496,148 @@ function TeamBoardContent({ synthesis }) {
   );
 
   return (
-    <div className="space-y-8">
-      <p className="text-sm text-neutral-700">
+    <div className="space-y-12">
+      <p className="text-sm" style={{ color: C.darkGray, lineHeight: 1.55 }}>
         The team's ideas after duplicates were removed.
       </p>
       {filledCategories.map((cat) => {
         const items = ideasByCategory[cat.id];
         return (
           <section key={cat.id}>
-            <h2 className="text-lg font-bold tracking-tight mb-3 flex items-center gap-2">
+            <div className="flex items-baseline gap-3 mb-4 pb-3 border-b" style={{ borderColor: C.lightGray }}>
               <span
-                className="inline-block w-2 h-2 rounded-full"
+                className="inline-block w-2 h-2 rounded-full flex-shrink-0"
                 style={{ background: cat.color }}
               />
-              {cat.title}
-              <span className="text-xs text-neutral-500 font-normal">
-                ({items.length})
+              <h2
+                className="font-bold leading-tight"
+                style={{
+                  fontSize: "1.125rem",
+                  letterSpacing: "-0.01em",
+                }}
+              >
+                {cat.title}
+              </h2>
+              <span
+                className="ml-auto text-[10px] uppercase tracking-[0.22em] font-semibold tabular-nums"
+                style={{ color: C.darkGray }}
+              >
+                {items.length}
               </span>
-            </h2>
+            </div>
             <div className="space-y-3">
-              {items.map((c) => (
-                <div
-                  key={c.id}
-                  className="p-4 border"
-                  style={{
-                    borderColor: C.lightGray,
-                    background: c.participantIds.length >= 2 ? C.starredBg : C.surface,
-                  }}
-                >
-                  <p className="font-semibold leading-snug">{c.title}</p>
-                  {c.summary && (
-                    <p className="text-sm text-neutral-600 mt-1 leading-relaxed">
-                      {c.summary}
+              {items.map((c) => {
+                const emphasized = c.participantIds.length >= 2;
+                return (
+                  <div
+                    key={c.id}
+                    className="p-4"
+                    style={{
+                      background: emphasized ? C.starredBg : C.surface,
+                      boxShadow: emphasized
+                        ? `inset 0 2px 0 0 ${cat.color}`
+                        : `inset 0 1px 0 0 ${cat.color}`,
+                    }}
+                  >
+                    <p
+                      className={emphasized ? "font-bold leading-snug" : "font-semibold leading-snug"}
+                      style={{
+                        fontSize: emphasized ? "1.0625rem" : "0.95rem",
+                      }}
+                    >
+                      {c.title}
                     </p>
-                  )}
-                  <p className="text-xs text-neutral-500 mt-2">
-                    {c.participantIds.length >= 2 && (
-                      <span
-                        className="inline-block px-1.5 py-0.5 mr-1 text-[10px] font-bold uppercase tracking-wider"
-                        style={{ background: cat.color, color: C.white }}
+                    {c.summary && (
+                      <p
+                        className="text-sm mt-2 leading-relaxed"
+                        style={{ color: C.darkGray }}
                       >
-                        {c.participantIds.length} ✕
-                      </span>
+                        {c.summary}
+                      </p>
                     )}
-                  </p>
-                </div>
-              ))}
+                    {emphasized && (
+                      <div className="flex items-center gap-2 mt-3">
+                        <span
+                          className="inline-block px-2 py-0.5 text-[10px] font-bold uppercase tracking-[0.18em]"
+                          style={{ background: cat.color, color: C.white }}
+                        >
+                          {c.participantIds.length} contributors
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
             </div>
           </section>
         );
       })}
     </div>
+  );
+}
+
+// ---------------------------------------------------------------
+// Footer — Word export (deliverable) + reset link
+// ---------------------------------------------------------------
+function Footer({ session, participant, canvas, onReset, showToast }) {
+  return (
+    <div
+      className="mt-16 pt-8 border-t flex items-center justify-between flex-wrap gap-4"
+      style={{ borderColor: C.lightGray }}
+    >
+      <button
+        type="button"
+        onClick={async () => {
+          try {
+            await exportParticipantDocx({ session, participant, canvas });
+          } catch (err) {
+            console.error("Export failed", err);
+            showToast({
+              message: err?.message ?? "Couldn't generate the Word file.",
+              variant: "error",
+            });
+          }
+        }}
+        className="inline-flex items-center gap-2 px-5 py-3 text-xs font-semibold uppercase tracking-[0.22em] border touch-min"
+        style={{
+          borderColor: C.black,
+          color: C.black,
+          background: "transparent",
+          transition: "background 0.15s ease, color 0.15s ease",
+        }}
+        onMouseEnter={(e) => {
+          e.currentTarget.style.background = C.black;
+          e.currentTarget.style.color = C.white;
+        }}
+        onMouseLeave={(e) => {
+          e.currentTarget.style.background = "transparent";
+          e.currentTarget.style.color = C.black;
+        }}
+      >
+        <Download size={14} />
+        Download my ideas (Word)
+      </button>
+      <button
+        type="button"
+        onClick={onReset}
+        className="text-xs underline-offset-4 hover:underline"
+        style={{ color: C.gray500 }}
+      >
+        Not you? Reset and re-enter your name
+      </button>
+    </div>
+  );
+}
+
+function FullScreenLoading({ children }) {
+  return (
+    <main className="min-h-screen bg-white text-black px-6 py-12 flex items-center justify-center">
+      <p
+        className="text-sm uppercase tracking-[0.22em] font-semibold"
+        style={{ color: C.gray500 }}
+      >
+        {children}
+      </p>
+    </main>
   );
 }

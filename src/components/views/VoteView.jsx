@@ -10,7 +10,7 @@ import { CATEGORIES } from "../../config/categories";
 import { C } from "../../config/constants";
 import { useToast } from "../../context/useToast";
 
-export default function VoteView({ session, participant }) {
+export default function VoteView({ session, participant, embedded = false }) {
   const synthesis = useQuery(api.synthesis.getLatestSynthesisForParticipant, {
     sessionId: session._id,
     participantId: participant._id,
@@ -52,7 +52,28 @@ export default function VoteView({ session, participant }) {
   if (!synthesis || !myVoteIdeaIds) {
     return (
       <main className="min-h-screen bg-white text-black px-6 py-12 flex items-center justify-center">
-        <p className="text-sm text-neutral-500">Loading the team's ideas…</p>
+        <p
+          className="text-sm uppercase tracking-[0.22em] font-semibold"
+          style={{ color: C.gray500 }}
+        >
+          Loading the team's ideas…
+        </p>
+      </main>
+    );
+  }
+  if (synthesis.clusters.length === 0) {
+    return (
+      <main className="min-h-screen bg-white text-black px-6 py-12 flex items-center justify-center">
+        <div className="max-w-md text-center">
+          <div className="kicker-row" style={{ justifyContent: "center" }}>
+            <span className="kicker-tick kicker-tick--sm" aria-hidden="true" />
+            <span className="kicker-label kicker-label--sm">Nothing to vote on</span>
+          </div>
+          <p className="text-sm" style={{ color: C.darkGray, lineHeight: 1.55 }}>
+            Synthesis returned no deduplicated ideas yet. Ask your facilitator
+            to re-run synthesis once more participants have locked their stars.
+          </p>
+        </div>
       </main>
     );
   }
@@ -83,59 +104,64 @@ export default function VoteView({ session, participant }) {
     }
   };
 
+  // Sticky cluster header offset is the budget chip height. Pass it via
+  // a CSS custom property so the value lives in one place; if the chip
+  // ever wraps to 2 lines, this still works.
+  const CLUSTER_TOP_OFFSET = "var(--vote-chip-h, 3.25rem)";
+
   return (
-    <main className="min-h-screen bg-white text-black">
-      {/* Sticky budget chip */}
+    <main
+      className="min-h-screen bg-white text-black"
+      style={{ "--vote-chip-h": "3.5rem" }}
+    >
+      {/* Sticky budget chip with kicker tick on the left edge */}
       <div
-        className="sticky top-0 z-40 px-4 py-4 text-center text-xs font-bold uppercase tracking-[0.28em]"
-        style={{ background: C.black, color: C.white }}
+        className="sticky top-0 z-40 flex items-center justify-center gap-3 px-4 text-xs font-bold uppercase tracking-[0.28em]"
+        style={{
+          background: C.black,
+          color: C.white,
+          height: "var(--vote-chip-h)",
+        }}
         role="status"
         aria-live="polite"
         aria-atomic="true"
       >
-        {allUsed ? (
-          <>
-            <span className="tabular-nums">{used}/{budget}</span>
-            <span className="mx-2" style={{ color: "#666" }}>·</span>
-            All votes in ✓
-          </>
-        ) : (
-          <>
-            <span className="tabular-nums">{used}/{budget}</span>
-            <span className="mx-2" style={{ color: "#666" }}>·</span>
-            Votes used
-          </>
-        )}
+        <span
+          className="inline-block w-1 h-4"
+          aria-hidden="true"
+          style={{ background: C.red }}
+        />
+        <span className="tabular-nums">{used}/{budget}</span>
+        <span style={{ color: "rgba(255,255,255,0.4)" }}>·</span>
+        <span>{allUsed ? "All votes in ✓" : "Votes used"}</span>
       </div>
 
       <div className="max-w-3xl mx-auto px-6 pt-12 pb-16">
-        <div className="mb-12">
-          <p className="text-[11px] font-bold uppercase tracking-[0.32em] text-neutral-500 mb-4">
-            Voting · {budget} {budget === 1 ? "vote" : "votes"} per person
-          </p>
-          <h1
-            className="font-bold leading-[1.05] tracking-tight mb-5"
-            style={{
-              fontSize: "clamp(2rem, 4vw, 2.75rem)",
-              letterSpacing: "-0.025em",
-            }}
-          >
-            Vote for your team's top ideas
-          </h1>
-          <p
-            className="leading-relaxed max-w-xl"
-            style={{
-              fontSize: "1.0625rem",
-              color: C.darkGray,
-            }}
-          >
-            One vote per idea. Pick the ideas you most want to see{" "}
-            <strong style={{ color: C.black }}>{session.functionName}</strong>{" "}
-            actually do.
-          </p>
-        </div>
+        {!embedded && (
+          <div className="mb-12">
+            <div className="kicker-row">
+              <span className="kicker-tick" aria-hidden="true" />
+              <span className="kicker-label">
+                Voting · {budget} {budget === 1 ? "vote" : "votes"} per person
+              </span>
+            </div>
+            <h1 className="font-bold leading-[1.05] mb-5 display-md">
+              Vote for your team's top ideas
+            </h1>
+            <p
+              className="leading-relaxed max-w-xl"
+              style={{ fontSize: "1.0625rem", color: C.darkGray }}
+            >
+              One vote per idea. Pick the ideas you most want to see{" "}
+              <strong style={{ color: C.black }}>{session.functionName}</strong>{" "}
+              actually do.
+            </p>
+          </div>
+        )}
 
-        <hr className="mb-10 border-0 h-px" style={{ background: C.lightGray }} />
+        {!embedded && (
+          <hr className="mb-10 border-0 h-px" style={{ background: C.lightGray }} />
+        )}
 
         <div className="space-y-12">
           {filledCategories.map((cat) => {
@@ -145,7 +171,7 @@ export default function VoteView({ session, participant }) {
                 <div
                   className="sticky z-30 -mx-6 px-6 py-3 flex items-center gap-3 backdrop-blur"
                   style={{
-                    top: "3.25rem",
+                    top: CLUSTER_TOP_OFFSET,
                     background: "rgba(255,255,255,0.92)",
                     borderBottom: `1px solid ${C.lightGray}`,
                   }}
@@ -199,21 +225,27 @@ export default function VoteView({ session, participant }) {
 }
 
 function VoteableCard({ title, summary, contributorCount, voted, disabled, onToggle }) {
+  // Voted = blue wash (distinct from starred ideas which use red wash on canvas).
+  // Same data shape, different user-meaning, different visual marker.
   return (
     <div
-      className="flex items-start gap-3 border p-4"
+      className="flex items-start gap-3 p-4"
       style={{
-        borderColor: voted ? C.red : C.lightGray,
-        background: voted ? C.starredBg : C.white,
+        background: voted ? C.votedBg : C.white,
+        boxShadow: voted
+          ? `inset 0 2px 0 0 ${C.electricBlue}`
+          : `inset 0 1px 0 0 ${C.lightGray}`,
       }}
     >
       <div className="flex-1 min-w-0">
         <p className="font-semibold leading-snug">{title}</p>
         {summary && (
-          <p className="text-sm text-neutral-600 mt-1 leading-relaxed">{summary}</p>
+          <p className="text-sm mt-1 leading-relaxed" style={{ color: C.darkGray }}>
+            {summary}
+          </p>
         )}
         {contributorCount >= 2 && (
-          <p className="text-xs text-neutral-500 mt-2">
+          <p className="text-xs mt-2" style={{ color: C.gray500 }}>
             {contributorCount} teammates suggested versions of this
           </p>
         )}
@@ -221,13 +253,14 @@ function VoteableCard({ title, summary, contributorCount, voted, disabled, onTog
       <button
         onClick={onToggle}
         disabled={disabled}
-        className="px-4 py-2 text-xs font-semibold uppercase tracking-wider border whitespace-nowrap disabled:opacity-40 disabled:cursor-not-allowed flex-shrink-0"
+        className="px-4 py-2 text-xs font-semibold uppercase tracking-[0.18em] whitespace-nowrap disabled:opacity-40 disabled:cursor-not-allowed flex-shrink-0"
         style={{
-          background: voted ? C.red : "transparent",
+          background: voted ? C.electricBlue : "transparent",
           color: voted ? C.white : C.black,
-          borderColor: voted ? C.red : C.black,
+          border: `1px solid ${voted ? C.electricBlue : C.black}`,
           minWidth: 84,
-          minHeight: 44,
+          minHeight: "var(--touch-min)",
+          transition: "background 0.15s ease, color 0.15s ease, border-color 0.15s ease",
         }}
         aria-label={voted ? `Remove vote for: ${title}` : `Vote for: ${title}`}
       >

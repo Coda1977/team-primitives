@@ -144,13 +144,13 @@ export default function Join() {
             <button
               type="submit"
               disabled={submitting || !name.trim()}
-              className="w-full px-6 py-4 text-sm font-semibold uppercase tracking-[0.22em] disabled:opacity-50 disabled:cursor-not-allowed inline-flex items-center justify-center gap-3"
+              className="w-full px-6 py-4 text-sm font-semibold uppercase tracking-[0.22em] disabled:opacity-50 disabled:cursor-not-allowed inline-flex items-center justify-center gap-3 transition-colors"
               style={{
                 // gray500 on white = 5.74:1, passes WCAG AA. gray300 (#999)
-                // was 2.85:1 — borderline-readable when the button is in its
-                // empty-name resting state.
+                // was 2.85:1, borderline readable.
                 background: name.trim() ? C.red : C.gray500,
                 color: C.white,
+                minHeight: "var(--touch-min)",
               }}
             >
               {submitting ? "Joining…" : (
@@ -163,22 +163,30 @@ export default function Join() {
           </form>
 
           {existing && existingSlug && (
-            <p
-              className="text-xs text-center mt-8"
+            <div
+              className="mt-8 pt-6 border-t flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 flex-wrap"
               style={{
-                color: C.gray500,
+                borderColor: C.lightGray,
                 opacity: 0,
                 animation: `joinReveal 700ms ease-out 400ms forwards`,
               }}
             >
-              You've already joined this workshop on this device.{" "}
+              <p className="text-xs" style={{ color: C.gray500 }}>
+                Already joined on this device?
+              </p>
               <button
+                type="button"
                 onClick={() => navigate(`/s/${code}/p/${existingSlug}`)}
-                className="underline hover:text-black"
+                className="px-4 py-2 text-xs font-semibold uppercase tracking-[0.22em] border touch-min"
+                style={{
+                  borderColor: C.charcoal,
+                  color: C.charcoal,
+                  background: "transparent",
+                }}
               >
-                Resume
+                Resume your board →
               </button>
-            </p>
+            </div>
           )}
         </div>
       </div>
@@ -189,12 +197,20 @@ export default function Join() {
 function FullPageStatus({ children }) {
   return (
     <main className="min-h-screen bg-white text-black px-6 py-12 flex items-center justify-center">
-      <p
-        className="text-base text-center max-w-md"
-        style={{ color: C.darkGray }}
-      >
-        {children}
-      </p>
+      <div className="max-w-md w-full text-center">
+        <div className="kicker-row" style={{ justifyContent: "center" }}>
+          <span className="kicker-tick kicker-tick--sm" aria-hidden="true" />
+          <span className="kicker-label kicker-label--sm">
+            Team Primitives · Workshop
+          </span>
+        </div>
+        <p
+          className="text-base"
+          style={{ color: C.darkGray, lineHeight: 1.55 }}
+        >
+          {children}
+        </p>
+      </div>
     </main>
   );
 }

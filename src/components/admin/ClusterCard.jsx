@@ -29,8 +29,9 @@ export default function ClusterCard({ cluster, ideas, participants }) {
           <span
             className="px-2 py-1 text-[10px] font-bold uppercase tracking-wider whitespace-nowrap mt-0.5"
             style={{ background: C.starredBg, color: C.red }}
+            title="People who contributed an idea that became part of this cluster"
           >
-            {cluster.participantIds.length} {cluster.participantIds.length === 1 ? "voter" : "voters"}
+            {cluster.participantIds.length} {cluster.participantIds.length === 1 ? "source" : "sources"}
           </span>
         </div>
         <h3 className="text-base font-bold leading-snug mb-1">{cluster.title}</h3>

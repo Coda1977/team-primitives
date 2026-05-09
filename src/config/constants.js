@@ -19,6 +19,12 @@ export const C = {
   warning: "#b45309",
   warningBg: "rgba(180,83,9,0.08)",
   warningDot: "#facc15",
+  // Locked-phase chip color (DESIGN_BRIEF specifies green)
+  successGreen: "#0a7c3a",
+  successGreenBg: "rgba(10,124,58,0.10)",
+  // Voted-idea wash. Distinct from starredBg (red) so users can tell
+  // "I starred this on canvas" from "I voted this in vote tab".
+  votedBg: "rgba(0,163,224,0.10)",
   // @deprecated Legacy aliases retained for inherited components.
   // Prefer canonical keys above for new code:
   //   ink/gray900 -> black, accent/accentGlow -> red, accentHover -> redHover,

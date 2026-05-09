@@ -77,6 +77,7 @@ function ParticipantInner({ session, participant }) {
       <GeneratingIndicator
         onReady={() => setAnimationDone(true)}
         apiReady={participant.phase === "canvas"}
+        functionName={session.functionName}
       />
     );
   }

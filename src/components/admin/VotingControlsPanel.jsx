@@ -49,7 +49,7 @@ export default function VotingControlsPanel({ session, adminKey }) {
     }
   };
 
-  const onClose = async () => {
+  const onCloseVoting = async () => {
     setSubmitting(true);
     setError(null);
     try {
@@ -61,132 +61,177 @@ export default function VotingControlsPanel({ session, adminKey }) {
     }
   };
 
-  return (
-    <div
-      className="border p-4"
-      style={{ borderColor: C.lightGray, background: C.surface }}
-    >
-      <h3 className="text-sm font-bold uppercase tracking-wider mb-3 flex items-center gap-2">
-        <Vote size={14} /> Voting
-      </h3>
+  // Each state gets its own architecture so the panel reads as a different
+  // moment of the workshop rather than "same shell, different copy."
+  if (isIdle) {
+    return (
+      <div>
+        <div className="kicker-row">
+          <span className="kicker-tick" aria-hidden="true" />
+          <span className="kicker-label">Step 4 · Open voting</span>
+        </div>
+        <h3 className="font-bold leading-tight mb-3" style={{ fontSize: "1.5rem", letterSpacing: "-0.015em" }}>
+          Choose vote budget
+        </h3>
+        <p className="text-sm mb-6" style={{ color: C.darkGray, lineHeight: 1.55 }}>
+          Each teammate spends up to this many votes on the team's deduplicated
+          ideas. One vote per idea per person.
+        </p>
+        <label className="block mb-6">
+          <span className="block text-[10px] font-bold uppercase tracking-[0.22em] mb-2" style={{ color: C.darkGray }}>
+            Votes per participant
+          </span>
+          <div className="flex gap-2 flex-wrap">
+            {[3, 5, 7].map((n) => (
+              <button
+                key={n}
+                type="button"
+                onClick={() => setBudget(n)}
+                className="px-4 text-sm font-bold tabular-nums touch-min"
+                style={{
+                  background: budget === n ? C.black : C.white,
+                  color: budget === n ? C.white : C.black,
+                  border: `1px solid ${C.black}`,
+                  cursor: "pointer",
+                  transition: "background 0.15s ease, color 0.15s ease",
+                }}
+              >
+                {n}
+              </button>
+            ))}
+            <input
+              type="number"
+              value={budget}
+              onChange={(e) => setBudget(Math.max(1, Number(e.target.value) || 1))}
+              min={1}
+              max={50}
+              aria-label="Custom vote budget"
+              className="w-20 px-3 text-sm tabular-nums"
+              style={{
+                border: `1px solid ${C.lightGray}`,
+                minHeight: "var(--touch-min)",
+              }}
+            />
+          </div>
+        </label>
+        <button
+          type="button"
+          onClick={onOpen}
+          disabled={submitting || budget < 1}
+          className="inline-flex items-center gap-2 px-6 text-xs font-bold uppercase tracking-[0.22em] disabled:opacity-50 touch-min"
+          style={{ background: C.red, color: C.white, border: "none", cursor: "pointer" }}
+        >
+          <Vote size={14} />
+          {submitting ? "Opening…" : "Open voting round"}
+        </button>
+        {error && (
+          <div className="mt-4">
+            <StatusBlock variant="alert" kicker="Couldn't open voting" compact>
+              {error}
+            </StatusBlock>
+          </div>
+        )}
+      </div>
+    );
+  }
 
-      {isIdle && (
-        <div className="space-y-3">
-          <p className="text-xs text-neutral-600">
-            Open a voting round so the team can pick the deduplicated ideas they most want to do. One vote per idea per person; the budget below caps total votes per person.
-          </p>
-          <label className="block">
-            <span className="block text-xs font-bold uppercase tracking-wider mb-1.5 text-neutral-700">
-              Votes per participant
-            </span>
-            <div className="flex gap-2">
-              {[3, 5, 7].map((n) => (
-                <button
-                  key={n}
-                  onClick={() => setBudget(n)}
-                  className="px-3 py-1.5 text-xs font-semibold border"
-                  style={{
-                    background: budget === n ? C.black : C.white,
-                    color: budget === n ? C.white : C.black,
-                    borderColor: C.black,
-                  }}
+  if (isOpen) {
+    return (
+      <div>
+        <div className="kicker-row">
+          <span className="kicker-tick" aria-hidden="true" />
+          <span className="kicker-label" style={{ color: C.red }}>
+            Live · Voting open
+          </span>
+        </div>
+        <h3 className="font-bold leading-tight mb-3" style={{ fontSize: "1.5rem", letterSpacing: "-0.015em" }}>
+          {tallies?.totalVotes ?? 0} {(tallies?.totalVotes ?? 0) === 1 ? "vote" : "votes"} cast
+        </h3>
+        <p className="text-sm mb-6" style={{ color: C.darkGray, lineHeight: 1.55 }}>
+          Budget {tallies?.votesPerParticipant ?? budget} per person. Participants
+          see voteable ideas; the tally below is admin-only.
+        </p>
+
+        {tallies?.ranked && tallies.ranked.length > 0 && (
+          <div
+            className="mb-6 border-t"
+            style={{ borderColor: C.lightGray }}
+          >
+            <ul className="pt-3 space-y-1.5">
+              {tallies.ranked.map((c) => (
+                <li
+                  key={c.id}
+                  className="text-xs flex items-baseline justify-between gap-3"
                 >
-                  {n}
-                </button>
+                  <span className="flex-1 truncate" title={c.title}>
+                    {c.title}
+                  </span>
+                  <span className="font-mono tabular-nums font-bold tabular-nums">
+                    {c.voteCount}
+                  </span>
+                </li>
               ))}
-              <input
-                type="number"
-                value={budget}
-                onChange={(e) => setBudget(Math.max(1, Number(e.target.value) || 1))}
-                min={1}
-                max={50}
-                className="w-20 px-3 py-1.5 text-xs border"
-                style={{ borderColor: C.lightGray }}
-              />
-            </div>
-          </label>
-          <button
-            onClick={onOpen}
-            disabled={submitting || budget < 1}
-            className="w-full sm:w-auto px-5 py-2.5 text-xs font-semibold uppercase tracking-wider disabled:opacity-50"
-            style={{ background: C.red, color: C.white }}
-          >
-            {submitting ? "Opening…" : "Open voting round"}
-          </button>
-        </div>
-      )}
-
-      {isOpen && (
-        <div className="space-y-3">
-          <div
-            className="px-3 py-2 text-xs"
-            style={{ background: "rgba(0,163,224,0.08)", color: C.darkGray }}
-          >
-            Voting is <strong>open</strong>. Budget: {tallies?.votesPerParticipant ?? budget} per person ·{" "}
-            <strong>{tallies?.totalVotes ?? 0}</strong> votes cast so far.
-            Participants see voteable ideas; tallies are hidden from them.
+            </ul>
           </div>
-          {tallies?.ranked && tallies.ranked.length > 0 && (
-            <details className="border" style={{ borderColor: C.lightGray }}>
-              <summary className="px-3 py-2 text-xs font-semibold uppercase tracking-wider cursor-pointer hover:bg-white">
-                Live tally (admin-only)
-              </summary>
-              <ul className="px-3 pb-3 pt-1 space-y-1">
-                {tallies.ranked.map((c) => (
-                  <li
-                    key={c.id}
-                    className="text-xs flex items-baseline justify-between gap-3"
-                  >
-                    <span className="flex-1 truncate" title={c.title}>
-                      {c.title}
-                    </span>
-                    <span className="font-mono tabular-nums">
-                      {c.voteCount}
-                    </span>
-                  </li>
-                ))}
-              </ul>
-            </details>
-          )}
-          <button
-            onClick={onClose}
-            disabled={submitting}
-            className="w-full sm:w-auto px-5 py-2.5 text-xs font-semibold uppercase tracking-wider disabled:opacity-50 inline-flex items-center gap-2"
-            style={{ background: C.red, color: C.white }}
-          >
-            <Lock size={12} />
-            {submitting ? "Closing…" : "Close voting & reveal results"}
-          </button>
-        </div>
-      )}
+        )}
 
-      {isClosed && (
-        <div className="space-y-3">
-          <div
-            className="px-3 py-2 text-xs"
-            style={{ background: C.starredBg, color: C.darkGray }}
-          >
-            Voting is <strong>closed</strong>. Final ranked list is visible on the participant boards and presentation view.
+        <button
+          type="button"
+          onClick={onCloseVoting}
+          disabled={submitting}
+          className="inline-flex items-center gap-2 px-6 text-xs font-bold uppercase tracking-[0.22em] disabled:opacity-50 touch-min"
+          style={{ background: C.black, color: C.white, border: "none", cursor: "pointer" }}
+        >
+          <Lock size={12} />
+          {submitting ? "Closing…" : "Close voting & reveal"}
+        </button>
+        {error && (
+          <div className="mt-4">
+            <StatusBlock variant="alert" kicker="Voting error" compact>
+              {error}
+            </StatusBlock>
           </div>
-          <button
-            onClick={onOpen}
-            disabled={submitting}
-            className="px-4 py-2 text-xs font-semibold uppercase tracking-wider border inline-flex items-center gap-2"
-            style={{ borderColor: C.black, color: C.black }}
-          >
-            <RotateCcw size={12} />
-            {submitting ? "Re-opening…" : "Re-open voting"}
-          </button>
-        </div>
-      )}
+        )}
+      </div>
+    );
+  }
 
-      {error && (
-        <div className="mt-3">
-          <StatusBlock variant="alert" kicker="Voting error" compact>
-            {error}
-          </StatusBlock>
+  if (isClosed) {
+    return (
+      <div>
+        <div className="kicker-row">
+          <span className="kicker-tick" aria-hidden="true" />
+          <span className="kicker-label">Voting closed</span>
         </div>
-      )}
-    </div>
-  );
+        <p className="text-sm mb-5" style={{ color: C.darkGray, lineHeight: 1.55 }}>
+          Final ranked list is visible on the participant boards and the
+          presentation view. The exports are below.
+        </p>
+        <button
+          type="button"
+          onClick={onOpen}
+          disabled={submitting}
+          className="inline-flex items-center gap-2 px-4 text-xs font-semibold uppercase tracking-[0.22em] touch-min"
+          style={{
+            background: "transparent",
+            border: `1px solid ${C.lightGray}`,
+            color: C.darkGray,
+            cursor: "pointer",
+          }}
+        >
+          <RotateCcw size={12} />
+          {submitting ? "Re-opening…" : "Re-open voting"}
+        </button>
+        {error && (
+          <div className="mt-4">
+            <StatusBlock variant="alert" kicker="Voting error" compact>
+              {error}
+            </StatusBlock>
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  return null;
 }

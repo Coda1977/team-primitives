@@ -209,7 +209,7 @@ function DashboardInner({ ownerKey, sessions }) {
   return (
     <main className="min-h-screen bg-white text-black">
       <style>{FADE_KEYFRAMES}</style>
-      <div className="max-w-[1400px] mx-auto px-8 lg:px-12 py-14">
+      <div className="max-w-[1400px] mx-auto px-4 md:px-8 lg:px-12 py-10 md:py-14">
         <header
           className="mb-16"
           style={{
@@ -336,9 +336,20 @@ function DashboardInner({ ownerKey, sessions }) {
 function FullPageStatus({ title, children }) {
   return (
     <main className="min-h-screen bg-white text-black px-6 py-12 flex items-center justify-center">
-      <div className="max-w-md text-center">
-        <h1 className="text-2xl font-bold tracking-tight mb-2">{title}</h1>
-        <div className="text-sm text-neutral-600">{children}</div>
+      <div className="max-w-md w-full">
+        <div className="kicker-row" style={{ justifyContent: "center" }}>
+          <span className="kicker-tick" aria-hidden="true" />
+          <span className="kicker-label">Owner library</span>
+        </div>
+        <h1 className="text-center font-bold leading-[1.05] mb-5 display-sm">
+          {title}
+        </h1>
+        <div
+          className="text-sm text-center"
+          style={{ color: C.darkGray, lineHeight: 1.6 }}
+        >
+          {children}
+        </div>
       </div>
     </main>
   );

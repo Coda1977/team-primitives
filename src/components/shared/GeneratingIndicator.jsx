@@ -1,18 +1,17 @@
-// Animates through the 6 primitive categories one at a time so the user
-// feels the AI is working through each. Adapted from the original AI Playbook
-// indicator — playbook (5-rules) mode dropped since Team Primitives only
-// generates AI-use-case canvases.
+// Editorial broadcast loading state. Replaces the legacy `.generating-container`
+// / `.gen-card` rounded white card with a flat editorial frame that matches
+// Intake → Canvas visual register. Step rotator preserved (it's the design's
+// anti-anxiety affordance per CLAUDE.md), but mounted inside the editorial
+// vocabulary instead of a card.
 //
 // Cadence:
 // - Slow path (default): 2200ms per step → ~13.2s total. Builds anticipation
 //   when the API is genuinely working.
 // - Fast path (`apiReady` flips true): remaining steps fly by at ~220ms each,
 //   the post-steps pause shrinks to 200ms, and the ready beat shrinks to 400ms.
-//   This kicks in when the participant.phase has already advanced to "canvas"
-//   — i.e., the action returned faster than the animation.
 
 import { useState, useEffect, useRef } from "react";
-import { Sparkles, CheckCircle2, Loader2, Circle } from "lucide-react";
+import { CheckCircle2, Loader2, Circle } from "lucide-react";
 import { C } from "../../config/constants";
 import { CATEGORIES, PRIMITIVES_GEN_STEPS } from "../../config/categories";
 
@@ -23,12 +22,9 @@ const FAST_FINISH_DELAY = 200;
 const SLOW_READY_BEAT = 1200;
 const FAST_READY_BEAT = 400;
 
-export default function GeneratingIndicator({ onReady, apiReady = false }) {
+export default function GeneratingIndicator({ onReady, apiReady = false, functionName }) {
   const steps = PRIMITIVES_GEN_STEPS;
   const items = CATEGORIES;
-  const title = "Discovering AI use cases";
-  const subtitle = "Brainstorming ideas for your function...";
-  const readyTitle = "Your AI use cases are ready";
 
   const [step, setStep] = useState(0);
   const [stepsFinished, setStepsFinished] = useState(false);
@@ -72,82 +68,119 @@ export default function GeneratingIndicator({ onReady, apiReady = false }) {
   }, [complete, onReady, readyBeat]);
 
   return (
-    <div className={`generating-container ${complete ? "generating-complete" : ""}`}>
-      <div className="gen-card" role="status" aria-live="polite">
+    <main className="min-h-screen bg-white text-black px-6 py-12 flex items-center justify-center">
+      <div
+        className="max-w-xl w-full"
+        role="status"
+        aria-live="polite"
+      >
+        <div className="kicker-row">
+          <span className="kicker-tick" aria-hidden="true" />
+          <span className="kicker-label">
+            {complete ? "Ready" : "Generating"}
+          </span>
+        </div>
+
         {complete ? (
-          <div className="ready-beat animate-fade-in">
-            <div className="ready-check">
-              <CheckCircle2 size={48} color={C.red} />
-            </div>
-            <h2 className="generating-title" style={{ marginTop: 20 }}>
-              {readyTitle}
-            </h2>
-            <p className="generating-subtitle" style={{ opacity: 0.7 }}>
-              Opening now...
+          <>
+            <h1 className="font-bold leading-[1.05] mb-4 display-md">
+              Your AI canvas is ready
+            </h1>
+            <p className="text-sm" style={{ color: C.darkGray, lineHeight: 1.55 }}>
+              Opening now…
             </p>
-          </div>
+          </>
         ) : (
           <>
-            <div className="generating-icon">
-              <Sparkles size={32} color={C.red} />
-            </div>
-            <h2 className="generating-title">{title}</h2>
-            <p className="generating-subtitle">{subtitle}</p>
-            <div className="generating-steps">
+            <h1 className="font-bold leading-[1.05] mb-3 display-md">
+              {functionName ? `Ideas for ${functionName}` : "Generating ideas"}
+            </h1>
+            <p className="text-sm mb-10" style={{ color: C.darkGray, lineHeight: 1.55 }}>
+              We're brainstorming use cases across all 6 primitive categories
+              based on your answers. Takes 10–15 seconds.
+            </p>
+
+            <hr className="border-0 h-px mb-8" style={{ background: C.lightGray }} />
+
+            <ol className="space-y-3">
               {steps.map((s, i) => {
                 const done = i < step;
                 const active = i === step;
                 const name = items[i].title;
                 return (
-                  <div
+                  <li
                     key={i}
-                    className={`gen-step ${
-                      done ? "gen-done" : active ? "gen-active" : "gen-future"
-                    }`}
+                    className="flex items-start gap-4"
+                    style={{
+                      opacity: done ? 0.55 : active ? 1 : 0.25,
+                      transition: "opacity 0.4s ease",
+                    }}
                   >
-                    <div
-                      className={`gen-step-icon ${
-                        active ? "gen-step-icon-active" : ""
-                      }`}
+                    <span
+                      className="flex-shrink-0 mt-0.5"
+                      style={
+                        active
+                          ? { animation: "spin 1.5s linear infinite", display: "inline-flex" }
+                          : { display: "inline-flex" }
+                      }
+                      aria-hidden="true"
                     >
                       {done ? (
                         <CheckCircle2 size={18} color={C.red} />
                       ) : active ? (
-                        <Loader2 size={18} color={C.red} className="spinning" />
+                        <Loader2 size={18} color={C.red} />
                       ) : (
-                        <Circle size={18} color={C.border} />
+                        <Circle size={18} color={C.lightGray} />
                       )}
-                    </div>
-                    <div>
-                      <div className="gen-step-name">{name}</div>
+                    </span>
+                    <div className="flex-1 min-w-0">
+                      <p
+                        className="font-semibold text-sm"
+                        style={{ color: active || done ? C.black : C.gray500 }}
+                      >
+                        {name}
+                      </p>
                       {(done || active) && (
-                        <div className="gen-step-tip animate-fade-in">{s.tip}</div>
+                        <p
+                          className="text-xs mt-1 italic"
+                          style={{ color: C.darkGray, lineHeight: 1.5 }}
+                        >
+                          {s.tip}
+                        </p>
                       )}
                     </div>
-                  </div>
+                  </li>
                 );
               })}
-              <div className="gen-progress-bar">
-                <div
-                  className="gen-progress-fill"
-                  style={{
-                    "--progress": Math.min(step / steps.length, 1),
-                  }}
-                />
-              </div>
-              <div className="gen-progress-label">
-                {Math.min(Math.round((step / steps.length) * 100), 100)}%
-              </div>
+            </ol>
+
+            {/* Progress bar — uses transform: scaleX (no layout property animation) */}
+            <div
+              className="mt-10 relative h-px overflow-hidden"
+              style={{ background: C.lightGray }}
+            >
+              <div
+                className="absolute inset-0"
+                style={{
+                  transformOrigin: "left center",
+                  transform: `scaleX(${Math.min(step / steps.length, 1)})`,
+                  background: C.red,
+                  transition: "transform 0.4s ease",
+                }}
+              />
             </div>
+
             {stepsFinished && (
-              <div className="gen-building animate-fade-in">
-                <Loader2 size={16} color={C.red} className="spinning" />
-                <span>Building your AI use cases...</span>
-              </div>
+              <p
+                className="mt-6 text-xs uppercase tracking-[0.22em] font-semibold animate-fade-in"
+                style={{ color: C.red }}
+              >
+                Building your canvas…
+              </p>
             )}
           </>
         )}
       </div>
-    </div>
+    </main>
   );
 }

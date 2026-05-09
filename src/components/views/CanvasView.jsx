@@ -140,19 +140,11 @@ function CanvasInner({ session, participant }) {
           </header>
 
           <div className="max-w-3xl mx-auto mb-12 animate-fade-in">
-            <p
-              className="text-[10px] font-bold uppercase tracking-[0.3em] mb-4"
-              style={{ color: C.gray500 }}
-            >
-              Your canvas
-            </p>
-            <h1
-              className="font-bold leading-[1.05] tracking-tight mb-5"
-              style={{
-                fontSize: "clamp(1.875rem, 3.5vw, 2.5rem)",
-                letterSpacing: "-0.025em",
-              }}
-            >
+            <div className="kicker-row">
+              <span className="kicker-tick" aria-hidden="true" />
+              <span className="kicker-label">Your canvas</span>
+            </div>
+            <h1 className="font-bold leading-[1.05] mb-5 display-md">
               Star 5–10 ideas to send to the team board.
             </h1>
             <div
@@ -205,39 +197,63 @@ function CanvasInner({ session, participant }) {
           )}
         </div>
 
-        <div className="gate-bar">
-          <div className="gate-left">
-            <div className={`gate-counter ${counterPulse ? "counter-pulse" : ""}`}>
+        {/* Editorial sticky gate — flat, top hairline, clear status message */}
+        <div
+          className="sticky bottom-0 z-10 mt-8 px-6 backdrop-blur"
+          style={{
+            background: "rgba(255,255,255,0.95)",
+            borderTop: `1px solid ${C.lightGray}`,
+          }}
+        >
+          <div className="max-w-3xl mx-auto py-4 flex items-center justify-between gap-4 flex-wrap">
+            <div
+              className="flex items-center gap-2 text-sm"
+              style={{
+                transform: counterPulse ? "scale(1.04)" : "scale(1)",
+                transition: "transform 0.3s ease",
+              }}
+            >
               <Star
                 size={14}
-                fill={C.accentGlow}
-                color={C.accentGlow}
+                fill={C.red}
+                color={C.red}
+                aria-hidden="true"
                 style={{ verticalAlign: "text-bottom" }}
-              />{" "}
-              <strong>{totals.starred}</strong> of {MIN_STARS}–{MAX_STARS}
+              />
+              <span className="tabular-nums">
+                <strong>{totals.starred}</strong> of {MIN_STARS}–{MAX_STARS}
+              </span>
             </div>
-          </div>
-          <div
-            role="status"
-            aria-live="polite"
-            aria-atomic="true"
-            style={{ fontSize: 13, color: "var(--color-dark-gray)", textAlign: "center" }}
-          >
-            {totals.starred === 0
-              ? "Star the ideas that resonate"
-              : totals.starred < MIN_STARS
-              ? `Star ${MIN_STARS - totals.starred} more to continue`
-              : totals.starred > MAX_STARS
-              ? `Unstar ${totals.starred - MAX_STARS} to continue`
-              : "Ready when you are"}
-          </div>
-          <div className="gate-actions">
-            <button
-              onClick={canFinalize ? () => setConfirmingFinalize(true) : undefined}
-              className={`btn-gate ${canFinalize ? "btn-gate-active" : "btn-gate-disabled"}`}
-              disabled={!canFinalize}
+            <div
+              role="status"
+              aria-live="polite"
+              aria-atomic="true"
+              className="text-xs uppercase tracking-[0.18em] font-semibold flex-1 text-center min-w-[180px]"
+              style={{ color: C.darkGray }}
             >
-              Submit stars to team <ChevronRight size={16} />
+              {totals.starred === 0
+                ? "Star the ideas that resonate"
+                : totals.starred < MIN_STARS
+                ? `Star ${MIN_STARS - totals.starred} more to continue`
+                : totals.starred > MAX_STARS
+                ? `Unstar ${totals.starred - MAX_STARS} to continue`
+                : "Ready when you are"}
+            </div>
+            <button
+              type="button"
+              onClick={canFinalize ? () => setConfirmingFinalize(true) : undefined}
+              disabled={!canFinalize}
+              className="inline-flex items-center gap-2 px-5 text-xs font-bold uppercase tracking-[0.22em] disabled:opacity-40 disabled:cursor-not-allowed touch-min"
+              style={{
+                background: canFinalize ? C.red : C.gray500,
+                color: C.white,
+                border: "none",
+                cursor: canFinalize ? "pointer" : "not-allowed",
+                transition: "background 0.2s ease",
+              }}
+            >
+              Submit stars
+              <ChevronRight size={16} />
             </button>
           </div>
         </div>

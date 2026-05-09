@@ -49,10 +49,12 @@ function RosterRow({ participant, now }) {
     locked: "Locked",
   }[participant.phase];
 
+  // DESIGN_BRIEF: locked = green (semantic completion), canvas = electric blue
+  // (in-progress), intake = neutral (just started).
   const phaseColors = {
     intake: { bg: "#f5f5f5", color: C.darkGray },
     canvas: { bg: "rgba(0,163,224,0.12)", color: C.electricBlue },
-    locked: { bg: "rgba(0,163,224,0.18)", color: C.electricBlue },
+    locked: { bg: C.successGreenBg, color: C.successGreen },
   }[participant.phase] ?? { bg: "#f5f5f5", color: C.darkGray };
 
   return (

@@ -5,21 +5,30 @@ import { ToastContext } from "./toastContextValue";
 export function ToastProvider({ children }) {
   const [toast, setToast] = useState(null);
 
-  const showToast = useCallback((message) => {
-    setToast(message);
+  // showToast accepts either a string (defaults to info) or
+  // { message, variant: "info" | "success" | "error" }.
+  const showToast = useCallback((messageOrOpts) => {
+    if (typeof messageOrOpts === "string") {
+      setToast({ message: messageOrOpts, variant: "info" });
+    } else if (messageOrOpts && typeof messageOrOpts === "object") {
+      setToast({
+        message: messageOrOpts.message ?? "",
+        variant: messageOrOpts.variant ?? "info",
+      });
+    }
   }, []);
 
-  const hideToast = useCallback(() => {
-    setToast(null);
-  }, []);
+  const hideToast = useCallback(() => setToast(null), []);
 
   return (
     <ToastContext.Provider value={{ showToast }}>
       {children}
       {toast && (
-        <div className="toast-container">
-          <Toast message={toast} onClose={hideToast} />
-        </div>
+        <Toast
+          message={toast.message}
+          variant={toast.variant}
+          onClose={hideToast}
+        />
       )}
     </ToastContext.Provider>
   );

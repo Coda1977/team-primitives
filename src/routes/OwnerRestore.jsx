@@ -24,6 +24,7 @@ export default function OwnerRestore() {
   const [error, setError] = useState(null);
   const [busy, setBusy] = useState(false);
   const [filename, setFilename] = useState(null);
+  const [dragOver, setDragOver] = useState(false);
 
   const onFile = async (file) => {
     if (!file) return;
@@ -113,13 +114,30 @@ export default function OwnerRestore() {
             }}
           >
             <label
-              className="block border-2 border-dashed cursor-pointer hover:bg-neutral-50 focus-within:bg-neutral-50 p-12 text-center"
-              style={{
-                borderColor: C.lightGray,
-                transition: "background-color 0.2s ease, border-color 0.2s ease",
+              className="block border-2 border-dashed cursor-pointer p-8 sm:p-12 text-center"
+              onDragOver={(e) => {
+                e.preventDefault();
+                setDragOver(true);
               }}
-              onFocus={(e) => (e.currentTarget.style.borderColor = C.electricBlue)}
-              onBlur={(e) => (e.currentTarget.style.borderColor = C.lightGray)}
+              onDragLeave={() => setDragOver(false)}
+              onDrop={(e) => {
+                e.preventDefault();
+                setDragOver(false);
+                const file = e.dataTransfer?.files?.[0];
+                if (file) onFile(file);
+              }}
+              style={{
+                borderColor: dragOver ? C.electricBlue : C.lightGray,
+                background: dragOver ? "rgba(0,163,224,0.04)" : "transparent",
+                transition:
+                  "background-color 0.2s ease, border-color 0.2s ease",
+              }}
+              onMouseEnter={(e) => {
+                if (!dragOver) e.currentTarget.style.borderColor = C.charcoal;
+              }}
+              onMouseLeave={(e) => {
+                if (!dragOver) e.currentTarget.style.borderColor = C.lightGray;
+              }}
             >
               <input
                 type="file"
@@ -138,7 +156,9 @@ export default function OwnerRestore() {
                   ? "Validating…"
                   : filename
                   ? filename
-                  : "Click to choose a backup file"}
+                  : dragOver
+                  ? "Drop the file here"
+                  : "Click or drag in a backup file"}
               </p>
               <p className="text-xs" style={{ color: C.gray500 }}>
                 {filename && !busy && !error

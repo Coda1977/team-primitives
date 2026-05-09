@@ -11,20 +11,13 @@ export default function ShareLinkPanel({ session, adminKey }) {
 
   return (
     <div className="mb-12">
-      <div className="flex items-baseline justify-between gap-3 mb-1 flex-wrap">
-        <div>
-          <h2
-            className="font-bold tracking-tight"
-            style={{
-              fontSize: "clamp(1.75rem, 3vw, 2.25rem)",
-              letterSpacing: "-0.025em",
-            }}
-          >
-            {session.functionName}
-          </h2>
-        </div>
+      {/* Session metadata strip — function name lives in AdminBoard's H1.
+          This row is just the workshop's identifier + meta. */}
+      <div className="flex items-baseline justify-between gap-3 mb-6 flex-wrap">
         <p className="text-xs" style={{ color: C.gray500 }}>
-          <span className="font-mono uppercase tracking-[0.18em]">{session.code}</span>
+          <span className="font-mono uppercase tracking-[0.18em] font-semibold" style={{ color: C.darkGray }}>
+            {session.code}
+          </span>
           {session.industry ? (
             <>
               <span className="mx-2" style={{ color: C.lightGray }}>·</span>
@@ -39,11 +32,6 @@ export default function ShareLinkPanel({ session, adminKey }) {
           ) : null}
         </p>
       </div>
-
-      <hr
-        className="my-6 border-0 h-px"
-        style={{ background: C.lightGray }}
-      />
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
         <UrlBlock label="Participant URL" url={participantUrl} kicker="Share with the team" />
@@ -89,7 +77,12 @@ function UrlBlock({ label, url, kicker, privateNote }) {
           type="button"
           onClick={onCopy}
           className="px-4 text-[10px] font-bold uppercase tracking-[0.18em]"
-          style={{ background: C.black, color: C.white }}
+          style={{
+            background: C.black,
+            color: C.white,
+            minWidth: "var(--touch-min)",
+            minHeight: "var(--touch-min)",
+          }}
         >
           {copied ? "Copied ✓" : "Copy"}
         </button>
